@@ -1,24 +1,13 @@
-# README
+# Arkham Proxy
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+This is a simple web app to get a pdf of cards from a deck on [Arkhamdb](https://arkhamdb.com/).
 
-Things you may want to cover:
+It's live at [https://arkham-proxy.herokuapp.com/](https://arkham-proxy.herokuapp.com/)
 
-* Ruby version
+## Built With
 
-* System dependencies
+[Prawn](https://github.com/prawnpdf/prawn) - for generating PDF files
 
-* Configuration
+## License
 
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
