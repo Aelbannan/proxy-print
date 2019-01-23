@@ -3,14 +3,12 @@ require "prawn/measurement_extensions"
 module PdfGenerator
   def self.generate(cards)
     pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :landscape)
-    cards_url = "https://arkhamdb.com/bundles/cards/"
     reset_cursor
-    cards.each do |id, quantity|
-
+    cards.each do |card_url, quantity|
       begin
-        image = open(cards_url + id + ".png")
+        image = open(card_url)
       rescue OpenURI::HTTPError
-        image = open(cards_url + id + ".jpg")
+        image = open(Rails.public_path.join("blank.png"))
       end
       quantity.times { add_image_to_pdf(image, pdf) }
     end
