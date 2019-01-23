@@ -5,3 +5,7 @@ Please provide a deck from <%= link_to "ArkhamDB", "https://arkhamdb.com"%>
   <%= text_field_tag(:id) %>
   <%= submit_tag("Get pdf") %>
 <% end %>
+<% if flash[:alert] %>
+    <div class="alert"> <%= flash[:alert] %> </div>
+<% end %>
+</p>

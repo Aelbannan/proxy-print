@@ -5,8 +5,10 @@ class ProxyController < ActionController::Base
   def new
     /(?<id>\d+)/ =~ params[:id]
     cards = card_ids(id).transform_keys { |card_id| card_image_url(card_id) }
-    byebug
     send_data PdfGenerator.generate(cards), filename: "cards.pdf"
+  rescue
+    flash.alert = "Deck not found"
+    render :show
   end
 
   def card_ids(deck_id)
