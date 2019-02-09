@@ -4,11 +4,11 @@ module PdfGenerator
   def self.generate(cards)
     pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :landscape)
     reset_cursor
-    cards.each do |card_url, quantity|
+    cards.each do |card_image_url, quantity|
       begin
-        image = open(card_url)
+        image = open(card_image_url)
       rescue OpenURI::HTTPError
-        image = open(Rails.public_path.join("blank.png"))
+        next
       end
       quantity.times { add_image_to_pdf(image, pdf) }
     end
