@@ -1,3 +1,4 @@
+require 'open-uri'
 require "prawn/measurement_extensions"
 
 module PdfGenerator
@@ -6,7 +7,7 @@ module PdfGenerator
     reset_cursor
     cards.each do |card_image_url, quantity|
       begin
-        image = open(card_image_url)
+        image = URI.open(card_image_url)
       rescue OpenURI::HTTPError
         next
       end
