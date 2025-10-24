@@ -2,24 +2,38 @@
 
 <h3>Option 1: From ArkhamDB Deck</h3>
 <p>
-<%= form_tag('/deck', method: "get") do %>
+<%= form_tag('/deck', method: "get", class: "pdf-form") do %>
   <%= label_tag(:id, "Deck ID or link from ") %>
   <%= link_to "ArkhamDB", "https://arkhamdb.com", target: "_blank" %>
   <br>
   <%= text_field_tag(:id, nil, placeholder: "e.g., 12345") %>
-  <%= submit_tag("Get PDF from Deck") %>
+  <%= submit_tag("Get PDF from Deck", data: { disable_with: false }) %>
 <% end %>
 </p>
 
 <h3>Option 2: From Card IDs</h3>
 <p>
-<%= form_tag('/card', method: "get") do %>
+<%= form_tag('/card', method: "get", class: "pdf-form") do %>
   <%= label_tag(:card_ids, "Card IDs (comma-separated)") %>
   <br>
   <%= text_field_tag(:card_ids, nil, placeholder: "e.g., 01001, 01002, 01003", size: 50) %>
-  <%= submit_tag("Get PDF from Cards") %>
+  <%= submit_tag("Get PDF from Cards", data: { disable_with: false }) %>
 <% end %>
 </p>
+
+<script>
+  // Re-enable submit buttons after download starts
+  document.querySelectorAll('.pdf-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      const submitBtn = this.querySelector('input[type="submit"]');
+      // Re-enable button after 2 seconds
+      setTimeout(() => {
+        submitBtn.disabled = false;
+        submitBtn.value = submitBtn.defaultValue;
+      }, 2000);
+    });
+  });
+</script>
 
 <% if flash[:alert] %>
     <div class="alert" style="color: red; margin-top: 20px;"> <%= flash[:alert] %> </div>

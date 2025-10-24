@@ -47,11 +47,11 @@ class ProxyController < ApplicationController
     
     images = []
     # Add front image
-    images << "https://arkhamdb.com" + card_data["imagesrc"]
+    images << "https://assets.arkham.build/optimized/#{card_data["code"]}.avif"
     
     # If card is double-sided, add backside image
     if card_data["double_sided"] == true && card_data["backimagesrc"]
-      images << "https://arkhamdb.com" + card_data["backimagesrc"]
+      images << "https://assets.arkham.build/optimized/#{card_data["code"]}b.avif"
     end
     
     images
