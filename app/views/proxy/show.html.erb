@@ -21,6 +21,16 @@
 <% end %>
 </p>
 
+<h3>Option 3: From Pack Code</h3>
+<p>
+<%= form_tag('/pack', method: "get", class: "pdf-form") do %>
+  <%= label_tag(:pack_code, "Pack Code") %>
+  <br>
+  <%= text_field_tag(:pack_code, nil, placeholder: "e.g., core, dwl, ptc", size: 30) %>
+  <%= submit_tag("Get PDF from Pack", data: { disable_with: false }) %>
+<% end %>
+</p>
+
 <script>
   // Re-enable submit buttons after download starts
   document.querySelectorAll('.pdf-form').forEach(form => {
