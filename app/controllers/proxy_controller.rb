@@ -92,7 +92,7 @@ class ProxyController < ApplicationController
       quantity = card["quantity"] || 1
       
       # Get card images (front and back if double-sided)
-      get_card_images(card["code"]).each do |img_url|
+      get_card_images(card).each do |img_url|
         cards[img_url] = quantity
       end
     end
