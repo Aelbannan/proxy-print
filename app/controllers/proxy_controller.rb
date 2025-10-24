@@ -8,15 +8,17 @@ class ProxyController < ApplicationController
     if params[:id]
       # Deck ID from URL
       /(?<id>\d+)/ =~ params[:id]
-      cards = card_ids(id).transform_keys { |card_id| card_image_url(card_id) }
+      cards = card_ids(id).transform_keys { |card_id| get_card_images(card_id) }.flatten(1)
     elsif params[:card_ids]
       # Direct card IDs (comma-separated or array)
       card_id_list = params[:card_ids].is_a?(String) ? params[:card_ids].split(',').map(&:strip) : params[:card_ids]
       # Build a hash of card_id => quantity (using same structure as deck endpoint)
       card_hash = Hash.new(0)
       card_id_list.each { |card_id| card_hash[card_id] += 1 }
-      # Transform keys to image URLs, just like the deck endpoint
-      cards = card_hash.transform_keys { |card_id| card_image_url(card_id) }
+      # Get card images including backsides for double-sided cards
+      cards = card_hash.flat_map { |card_id, quantity| 
+        get_card_images(card_id).map { |img_url| [img_url, quantity] }
+      }.to_h
     else
       flash.alert = "Please provide either a deck ID or card IDs"
       render :show and return
@@ -37,5 +39,21 @@ class ProxyController < ApplicationController
   def card_image_url(card_id)
     card_api = "https://arkhamdb.com/api/public/card/"
     "https://arkhamdb.com" + HTTParty.get(card_api + card_id)["imagesrc"]
+  end
+
+  def get_card_images(card_id)
+    card_api = "https://arkhamdb.com/api/public/card/"
+    card_data = HTTParty.get(card_api + card_id)
+    
+    images = []
+    # Add front image
+    images << "https://arkhamdb.com" + card_data["imagesrc"]
+    
+    # If card is double-sided, add backside image
+    if card_data["double_sided"] == true && card_data["backimagesrc"]
+      images << "https://arkhamdb.com" + card_data["backimagesrc"]
+    end
+    
+    images
   end
 end

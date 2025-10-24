@@ -39,7 +39,7 @@ module PdfGenerator
     # Spacing calculations for portrait A4: 3 cards across
     # card_width (63mm ≈ 178pt) + small margin
     if ((@@x_position += 180) > 360)
-      @@x_position = 0
+      @@x_position = -5
       # card_height (88mm ≈ 249pt) + small margin
       if ((@@y_position -= 253) < 100)
         @@y_position = 785
@@ -50,6 +50,6 @@ module PdfGenerator
 
   def self.reset_cursor
     @@y_position = 785  # Higher starting position for portrait
-    @@x_position = 0
+    @@x_position = -5
   end
 end
