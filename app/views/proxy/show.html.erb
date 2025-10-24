@@ -1,11 +1,26 @@
-Please provide a deck from <%= link_to "ArkhamDB", "https://arkhamdb.com"%>
+<h2>Generate Card Proxies</h2>
+
+<h3>Option 1: From ArkhamDB Deck</h3>
 <p>
 <%= form_tag('/deck', method: "get") do %>
-  <%= label_tag(:q, "Deck id or link") %>
-  <%= text_field_tag(:id) %>
-  <%= submit_tag("Get pdf") %>
-<% end %>
-<% if flash[:alert] %>
-    <div class="alert"> <%= flash[:alert] %> </div>
+  <%= label_tag(:id, "Deck ID or link from ") %>
+  <%= link_to "ArkhamDB", "https://arkhamdb.com", target: "_blank" %>
+  <br>
+  <%= text_field_tag(:id, nil, placeholder: "e.g., 12345") %>
+  <%= submit_tag("Get PDF from Deck") %>
 <% end %>
 </p>
+
+<h3>Option 2: From Card IDs</h3>
+<p>
+<%= form_tag('/card', method: "get") do %>
+  <%= label_tag(:card_ids, "Card IDs (comma-separated)") %>
+  <br>
+  <%= text_field_tag(:card_ids, nil, placeholder: "e.g., 01001, 01002, 01003", size: 50) %>
+  <%= submit_tag("Get PDF from Cards") %>
+<% end %>
+</p>
+
+<% if flash[:alert] %>
+    <div class="alert" style="color: red; margin-top: 20px;"> <%= flash[:alert] %> </div>
+<% end %>
