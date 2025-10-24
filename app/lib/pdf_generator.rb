@@ -7,7 +7,9 @@ module PdfGenerator
     pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :portrait)
     reset_cursor
     Rails.logger.info("Starting PDF generation with #{cards.size} unique images")
-    
+
+    draw_lines(pdf)
+
     cards.each_with_index do |(card_image_url, quantity), index|
       begin
         Rails.logger.info("Processing card #{index + 1}/#{cards.size}: #{card_image_url} (quantity: #{quantity})")
@@ -58,6 +60,7 @@ module PdfGenerator
   def self.add_image_blob_to_pdf(image_blob, pdf)
     # Standard card size: 63x88mm
     card_width = 63.mm
+    card_height = 88.mm
     
     # Create new StringIO for each copy to avoid rewind issues
     blob_io = StringIO.new(image_blob)
@@ -66,11 +69,18 @@ module PdfGenerator
     # Spacing calculations for portrait A4: 3 cards across
     # card_width (63mm ≈ 178pt) + small margin
     if ((@@x_position += 178) > 360)
+      # Draw a line under the completed row before moving to next row
+      line_y = @@y_position - card_height # 2pt below the cards
+      pdf.stroke do
+        pdf.line [-40, line_y], [565, line_y]
+      end
+      
       @@x_position = -5
       # card_height (88mm ≈ 249pt) + small margin
       if ((@@y_position -= 249) < 100)
         @@y_position = 785
         pdf.start_new_page
+        draw_lines(pdf)
       end
     end
   end
@@ -79,4 +89,19 @@ module PdfGenerator
     @@y_position = 785  # Higher starting position for portrait
     @@x_position = -5
   end
+
+  def self.draw_lines(pdf)
+    pdf.stroke do
+      pdf.line [-5, -60], [-5, 800]
+    end
+  
+    pdf.stroke do
+      pdf.line [173, -60], [173, 800]
+    end
+  
+    pdf.stroke do
+      pdf.line [351, -60], [351, 800]
+    end
+  end
 end
+
