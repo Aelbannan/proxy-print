@@ -6,16 +6,17 @@ module PdfGenerator
   def self.generate(cards)
     pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :portrait, :margin => 0)
 
-    @@card_width = Prawn::Measurement.mm2pt(63.mm)
-    @@card_height = Prawn::Measurement.mm2pt(88.mm)
-    @@card_x_margin = 30.5.pt
-    @@card_y_start = 805.pt
+    @@card_width = 63.mm
+    @@card_height = 88.mm
+    
+    @@card_y_start = 815.pt
     @@card_border_width = 8.pt
+    @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_border_width * 2)) / 2
     
     reset_cursor
     Rails.logger.info("Starting PDF generation with #{cards.size} unique images")
 
-    draw_lines(pdf)
+    #draw_lines(pdf)
 
     cards.each_with_index do |(card_image_url, quantity), index|
       begin
@@ -65,6 +66,15 @@ module PdfGenerator
 
   # Add a pre-processed image blob to the PDF
   def self.add_image_blob_to_pdf(image_blob, pdf)
+    # Draw black border square that's card_border_width bigger in each direction
+    border_x = @@x_position - @@card_border_width
+    border_y = @@y_position + @@card_border_width
+    border_width = @@card_width + (@@card_border_width * 2)
+    border_height = @@card_height + (@@card_border_width * 2)
+    
+    pdf.fill_color "000000"
+    pdf.fill_rectangle [border_x, border_y], border_width, border_height
+    
     # Create new StringIO for each copy to avoid rewind issues
     blob_io = StringIO.new(image_blob)
     pdf.image blob_io, width: @@card_width, at: [@@x_position, @@y_position]
@@ -72,29 +82,20 @@ module PdfGenerator
     # Spacing calculations for portrait A4: 3 cards across
 
     # card_width (63mm ≈ 178pt) + small margin
-    if ((@@x_position += @@card_width + @@card_x_margin) > (@@card_x_margin + @@card_width * 2))
-      # Draw a thin white line under the completed row before moving to next row
-      line_y = @@y_position - @@card_height
-
-      pdf.line_width @@card_border_width
-
-      pdf.stroke do
-        pdf.line [0, line_y], [pdf.bounds.right, line_y]
-      end
-      
+    if ((@@x_position += @@card_width + @@card_border_width) > (@@card_x_margin + (@@card_width + @@card_border_width) * 2))
       @@x_position = @@card_x_margin
       # card_height (88mm ≈ 249pt) + small margin
-      if ((@@y_position -= @@card_height + @@card_y_margin) < 100)
-        @@y_position = 805
+      if ((@@y_position -= @@card_height + @@card_border_width) < 100)
+        @@y_position = @@card_y_start
         pdf.start_new_page
-        draw_lines(pdf)
+        #draw_lines(pdf)
       end
     end
   end
 
   def self.reset_cursor
-    @@y_position = 805  # Higher starting position for portrait
-    @@x_position = 30.5
+    @@y_position = @@card_y_start  # Higher starting position for portrait
+    @@x_position = @@card_x_margin
   end
 
   def self.draw_lines(pdf)    
@@ -103,19 +104,19 @@ module PdfGenerator
     
     # Draw vertical cutting lines
     pdf.stroke do
-      pdf.line [30.5, 0], [30.5, 843]
+      pdf.line [@@card_x_margin + @@card_border_width/2, 0], [@@card_x_margin + @@card_border_width/2, 843]
     end
   
     pdf.stroke do
-      pdf.line [208.5, 0], [208.5, 843]
+      pdf.line [@@card_x_margin + (@@card_width + @@card_border_width) + @@card_border_width/2, 0], [@@card_x_margin + (@@card_width + @@card_border_width) + @@card_border_width/2, 843]
     end
   
     pdf.stroke do
-      pdf.line [386.5, 0], [386.5, 843]
+      pdf.line [@@card_x_margin + (@@card_width + @@card_border_width) * 2 + @@card_border_width/2, 0], [@@card_x_margin + (@@card_width + @@card_border_width) * 2 + @@card_border_width/2, 843]
     end
 
     pdf.stroke do
-      pdf.line [564.5, 0], [564.5, 843]
+      pdf.line [@@card_x_margin + (@@card_width + @@card_border_width) * 3 + @@card_border_width/2, 0], [@@card_x_margin + (@@card_width + @@card_border_width) * 3 + @@card_border_width/2, 843]
     end
   end
 end
