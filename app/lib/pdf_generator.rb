@@ -23,6 +23,9 @@ module PdfGenerator
     cards.each_slice(9).with_index do |card_batch, batch_index|
       Rails.logger.info("Processing batch #{batch_index + 1}: #{card_batch.size} cards")
       
+      # Start new page for this batch (except for first batch)
+      pdf.start_new_page if batch_index > 0
+      
       # Generate fronts page
       reset_cursor
       card_batch.each_with_index do |card_metadata, card_index|
