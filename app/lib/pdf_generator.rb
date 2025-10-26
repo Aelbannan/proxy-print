@@ -4,7 +4,7 @@ require 'mini_magick'
 
 module PdfGenerator
   def self.generate(cards)
-    pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :portrait)
+    pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :portrait, :margin => 0)
     reset_cursor
     Rails.logger.info("Starting PDF generation with #{cards.size} unique images")
 
@@ -68,17 +68,17 @@ module PdfGenerator
     
     # Spacing calculations for portrait A4: 3 cards across
     # card_width (63mm ≈ 178pt) + small margin
-    if ((@@x_position += 178) > 360)
+    if ((@@x_position += 178) > 390.5)
       # Draw a line under the completed row before moving to next row
       line_y = @@y_position - card_height # 2pt below the cards
       pdf.stroke do
         pdf.line [-40, line_y], [565, line_y]
       end
       
-      @@x_position = -5
+      @@x_position = 30.5
       # card_height (88mm ≈ 249pt) + small margin
       if ((@@y_position -= 249) < 100)
-        @@y_position = 785
+        @@y_position = 805
         pdf.start_new_page
         draw_lines(pdf)
       end
@@ -86,22 +86,21 @@ module PdfGenerator
   end
 
   def self.reset_cursor
-    @@y_position = 785  # Higher starting position for portrait
-    @@x_position = -5
+    @@y_position = 805  # Higher starting position for portrait
+    @@x_position = 30.5
   end
 
   def self.draw_lines(pdf)
     pdf.stroke do
-      pdf.line [-5, -60], [-5, 800]
+      pdf.line [30.5, 0], [30.5, 843]
     end
   
     pdf.stroke do
-      pdf.line [173, -60], [173, 800]
+      pdf.line [208.5, 0], [208.5, 843]
     end
   
     pdf.stroke do
-      pdf.line [351, -60], [351, 800]
+      pdf.line [387, 0], [387, 843]
     end
   end
 end
-
