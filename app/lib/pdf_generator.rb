@@ -100,7 +100,11 @@ module PdfGenerator
     end
   
     pdf.stroke do
-      pdf.line [387, 0], [387, 843]
+      pdf.line [386.5, 0], [386.5, 843]
+    end
+
+    pdf.stroke do
+      pdf.line [564.5, 0], [564.5, 843]
     end
   end
 end
