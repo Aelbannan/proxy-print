@@ -13,55 +13,79 @@ module PdfGenerator
     @@card_border_width = 8.pt
     @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_border_width * 2)) / 2
     
-    reset_cursor
-    Rails.logger.info("Starting PDF generation with #{cards.size} unique images")
-
-    #draw_lines(pdf)
-
-    cards.each_with_index do |(card_image_url, quantity), index|
-      begin
-        Rails.logger.info("Processing card #{index + 1}/#{cards.size}: #{card_image_url} (quantity: #{quantity})")
-        image = URI.open(card_image_url)
-        
-        # Process image once and reuse the blob for all copies
-        img = MiniMagick::Image.read(image)
-        
-        # Convert AVIF or other unsupported formats to PNG
-        if img.type == "AVIF" || !["JPEG", "PNG", "JPG"].include?(img.type)
-          img.format "png"
+    # URLs for generic card backs
+    @@mythos_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed2.png?strip=info&w=850"
+    @@player_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed1.png?strip=info&w=850"
+    
+    Rails.logger.info("Starting PDF generation with #{cards.size} cards")
+    
+    # Process cards in groups of 9 (one page of fronts, one page of backs)
+    cards.each_slice(9).with_index do |card_batch, batch_index|
+      Rails.logger.info("Processing batch #{batch_index + 1}: #{card_batch.size} cards")
+      
+      # Generate fronts page
+      reset_cursor
+      card_batch.each_with_index do |card_metadata, card_index|
+        begin
+          Rails.logger.info("Processing front #{card_index + 1}/#{card_batch.size}")
+          process_and_add_image(card_metadata[:front_image], pdf)
+        rescue => e
+          Rails.logger.error("Error processing front: #{e.message}")
+          raise e
         end
-        
-        # Check if image needs rotation
-        if img.width > img.height
-          img.rotate "90"
+      end
+      
+      # Start new page for backs
+      pdf.start_new_page
+      reset_cursor
+      
+      # Generate backs page (in same positions)
+      card_batch.each_with_index do |card_metadata, card_index|
+        begin
+          Rails.logger.info("Processing back #{card_index + 1}/#{card_batch.size}")
+          
+          # Determine which back image to use
+          back_image_url = if card_metadata[:double_sided] && card_metadata[:back_image]
+            card_metadata[:back_image]
+          elsif card_metadata[:faction] == "mythos"
+            @@mythos_back_url
+          else
+            @@player_back_url
+          end
+          
+          process_and_add_image(back_image_url, pdf)
+        rescue => e
+          Rails.logger.error("Error processing back: #{e.message}")
+          raise e
         end
-        
-        # Convert to blob once
-        image_blob = img.to_blob
-        
-        # Add all copies to PDF
-        quantity.times do |copy_num|
-          Rails.logger.debug("Adding copy #{copy_num + 1}/#{quantity} of #{card_image_url}")
-          add_image_blob_to_pdf(image_blob, pdf)
-        end
-        
-        Rails.logger.info("Successfully processed: #{card_image_url}")
-      rescue OpenURI::HTTPError => e
-        Rails.logger.warn("Failed to fetch image (HTTP error): #{card_image_url} - #{e.message}")
-        next
-      rescue MiniMagick::Error => e
-        Rails.logger.error("ImageMagick error processing: #{card_image_url}")
-        Rails.logger.error("Error: #{e.class} - #{e.message}")
-        raise e
-      rescue StandardError => e
-        Rails.logger.error("Unexpected error processing: #{card_image_url}")
-        Rails.logger.error("Error: #{e.class} - #{e.message}")
-        raise e
       end
     end
     
     Rails.logger.info("PDF generation completed successfully")
     pdf.render
+  end
+  
+  def self.process_and_add_image(image_url, pdf)
+    image = URI.open(image_url)
+    
+    # Process image
+    img = MiniMagick::Image.read(image)
+    
+    # Convert AVIF or other unsupported formats to PNG
+    if img.type == "AVIF" || !["JPEG", "PNG", "JPG"].include?(img.type)
+      img.format "png"
+    end
+    
+    # Check if image needs rotation
+    if img.width > img.height
+      img.rotate "90"
+    end
+    
+    # Convert to blob
+    image_blob = img.to_blob
+    
+    # Add to PDF
+    add_image_blob_to_pdf(image_blob, pdf)
   end
 
   # Add a pre-processed image blob to the PDF
@@ -80,16 +104,11 @@ module PdfGenerator
     pdf.image blob_io, width: @@card_width, at: [@@x_position, @@y_position]
     
     # Spacing calculations for portrait A4: 3 cards across
-
-    # card_width (63mm ≈ 178pt) + small margin
+    # Move to next position after placing card
     if ((@@x_position += @@card_width + @@card_border_width) > (@@card_x_margin + (@@card_width + @@card_border_width) * 2))
+      # Move to start of next row
       @@x_position = @@card_x_margin
-      # card_height (88mm ≈ 249pt) + small margin
-      if ((@@y_position -= @@card_height + @@card_border_width) < 100)
-        @@y_position = @@card_y_start
-        pdf.start_new_page
-        #draw_lines(pdf)
-      end
+      @@y_position -= @@card_height + @@card_border_width
     end
   end
 
