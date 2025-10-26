@@ -42,8 +42,14 @@ module PdfGenerator
       pdf.start_new_page
       reset_cursor
       
-      # Generate backs page (in same positions)
-      card_batch.each_with_index do |card_metadata, card_index|
+      # Generate backs page - reverse order horizontally for double-sided printing
+      # Reverse every 3 cards (each row) so they align when flipped
+      reversed_batch = []
+      card_batch.each_slice(3) do |row|
+        reversed_batch.concat(row.reverse)
+      end
+      
+      reversed_batch.each_with_index do |card_metadata, card_index|
         begin
           Rails.logger.info("Processing back #{card_index + 1}/#{card_batch.size}")
           
