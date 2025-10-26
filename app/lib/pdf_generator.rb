@@ -5,6 +5,13 @@ require 'mini_magick'
 module PdfGenerator
   def self.generate(cards)
     pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :portrait, :margin => 0)
+
+    @@card_width = Prawn::Measurement.mm2pt(63.mm)
+    @@card_height = Prawn::Measurement.mm2pt(88.mm)
+    @@card_x_margin = 30.5.pt
+    @@card_y_start = 805.pt
+    @@card_border_width = 8.pt
+    
     reset_cursor
     Rails.logger.info("Starting PDF generation with #{cards.size} unique images")
 
@@ -58,26 +65,26 @@ module PdfGenerator
 
   # Add a pre-processed image blob to the PDF
   def self.add_image_blob_to_pdf(image_blob, pdf)
-    # Standard card size: 63x88mm
-    card_width = 63.mm
-    card_height = 88.mm
-    
     # Create new StringIO for each copy to avoid rewind issues
     blob_io = StringIO.new(image_blob)
-    pdf.image blob_io, width: card_width, at: [@@x_position, @@y_position]
+    pdf.image blob_io, width: @@card_width, at: [@@x_position, @@y_position]
     
     # Spacing calculations for portrait A4: 3 cards across
+
     # card_width (63mm ≈ 178pt) + small margin
-    if ((@@x_position += 178) > 390.5)
-      # Draw a line under the completed row before moving to next row
-      line_y = @@y_position - card_height # 2pt below the cards
+    if ((@@x_position += @@card_width + @@card_x_margin) > (@@card_x_margin + @@card_width * 2))
+      # Draw a thin white line under the completed row before moving to next row
+      line_y = @@y_position - @@card_height
+
+      pdf.line_width @@card_border_width
+
       pdf.stroke do
-        pdf.line [-40, line_y], [565, line_y]
+        pdf.line [0, line_y], [pdf.bounds.right, line_y]
       end
       
-      @@x_position = 30.5
+      @@x_position = @@card_x_margin
       # card_height (88mm ≈ 249pt) + small margin
-      if ((@@y_position -= 249) < 100)
+      if ((@@y_position -= @@card_height + @@card_y_margin) < 100)
         @@y_position = 805
         pdf.start_new_page
         draw_lines(pdf)
@@ -90,7 +97,11 @@ module PdfGenerator
     @@x_position = 30.5
   end
 
-  def self.draw_lines(pdf)
+  def self.draw_lines(pdf)    
+    # Set line properties: white color and thin width
+    pdf.line_width @@card_border_width
+    
+    # Draw vertical cutting lines
     pdf.stroke do
       pdf.line [30.5, 0], [30.5, 843]
     end
