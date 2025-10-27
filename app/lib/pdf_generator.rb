@@ -10,7 +10,7 @@ module PdfGenerator
     @@card_height = 88.mm
     
     @@card_y_start = 815.pt
-    @@card_border_width = 8.pt
+    @@card_border_width = 0.pt
     @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_border_width * 2)) / 2
     
     # URLs for generic card backs
@@ -31,7 +31,7 @@ module PdfGenerator
       card_batch.each_with_index do |card_metadata, card_index|
         begin
           Rails.logger.info("Processing front #{card_index + 1}/#{card_batch.size}")
-          process_and_add_image(card_metadata[:front_image], pdf)
+          process_and_add_image(card_metadata[:front_image], pdf, true)
         rescue => e
           Rails.logger.error("Error processing front: #{e.message}")
           raise e
@@ -53,8 +53,10 @@ module PdfGenerator
         begin
           Rails.logger.info("Processing back #{card_index + 1}/#{card_batch.size}")
           
-          # Determine which back image to use
-          back_image_url = if card_metadata[:double_sided] && card_metadata[:back_image]
+          # Determine which back image to use and whether it's from a double-sided card
+          is_specific_back = card_metadata[:double_sided] && card_metadata[:back_image]
+          
+          back_image_url = if is_specific_back
             card_metadata[:back_image]
           elsif card_metadata[:faction] == "mythos"
             @@mythos_back_url
@@ -62,7 +64,8 @@ module PdfGenerator
             @@player_back_url
           end
           
-          process_and_add_image(back_image_url, pdf)
+          # Pass true for double_sided only if it's a specific back from a double-sided card
+          process_and_add_image(back_image_url, pdf, is_specific_back)
         rescue => e
           Rails.logger.error("Error processing back: #{e.message}")
           raise e
@@ -74,7 +77,7 @@ module PdfGenerator
     pdf.render
   end
   
-  def self.process_and_add_image(image_url, pdf)
+  def self.process_and_add_image(image_url, pdf, double_sided = true)
     image = URI.open(image_url)
     
     # Process image
@@ -88,6 +91,17 @@ module PdfGenerator
     # Check if image needs rotation
     if img.width > img.height
       img.rotate "90"
+    end
+    
+    # Crop single-sided cards to 827px width (centered)
+    unless double_sided
+      current_width = img.width
+      if current_width > 827
+        # Calculate offset to center the crop
+        x_offset = (current_width - 827) / 2
+        img.crop "827x#{img.height}+#{x_offset}+0"
+        Rails.logger.info("Cropped single-sided card from #{current_width}px to 827px width")
+      end
     end
     
     # Convert to blob
