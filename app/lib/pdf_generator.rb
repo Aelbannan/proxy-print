@@ -31,7 +31,7 @@ module PdfGenerator
       card_batch.each_with_index do |card_metadata, card_index|
         begin
           Rails.logger.info("Processing front #{card_index + 1}/#{card_batch.size}")
-          process_and_add_image(card_metadata[:front_image], pdf, true)
+          process_and_add_image(card_metadata[:front_image], pdf, card_metadata[:double_sided])
         rescue => e
           Rails.logger.error("Error processing front: #{e.message}")
           raise e
@@ -113,18 +113,17 @@ module PdfGenerator
 
   # Add a pre-processed image blob to the PDF
   def self.add_image_blob_to_pdf(image_blob, pdf)
-    # Draw black border square that's card_border_width bigger in each direction
-    border_x = @@x_position - @@card_border_width
-    border_y = @@y_position + @@card_border_width
-    border_width = @@card_width + (@@card_border_width * 2)
-    border_height = @@card_height + (@@card_border_width * 2)
-    
-    pdf.fill_color "000000"
-    pdf.fill_rectangle [border_x, border_y], border_width, border_height
-    
     # Create new StringIO for each copy to avoid rewind issues
     blob_io = StringIO.new(image_blob)
     pdf.image blob_io, width: @@card_width, at: [@@x_position, @@y_position]
+    
+    # Draw 2mm black border with rounded corners on top of the card
+    border_width = 2.mm
+    corner_radius = 3.mm  # Rounded corners
+    
+    pdf.stroke_color "000000"
+    pdf.line_width border_width
+    pdf.stroke_rounded_rectangle([@@x_position, @@y_position], @@card_width, @@card_height, corner_radius)
     
     # Spacing calculations for portrait A4: 3 cards across
     # Move to next position after placing card
