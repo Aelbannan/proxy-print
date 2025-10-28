@@ -24,10 +24,10 @@
 <h3>Option 3: From Pack Code</h3>
 <p>
 <%= form_tag('/pack', method: "get", class: "pdf-form") do %>
-  <%= label_tag(:pack_code, "Pack Code") %>
+  <%= label_tag(:pack_code, "Pack Code(s) - comma-separated for multiple") %>
   <br>
-  <%= text_field_tag(:pack_code, nil, placeholder: "e.g., core, dwl, ptc", size: 30) %>
-  <%= submit_tag("Get PDF from Pack", data: { disable_with: false }) %>
+  <%= text_field_tag(:pack_code, nil, placeholder: "e.g., core, dwl, ptc", size: 50) %>
+  <%= submit_tag("Get PDF from Pack(s)", data: { disable_with: false }) %>
 <% end %>
 </p>
 

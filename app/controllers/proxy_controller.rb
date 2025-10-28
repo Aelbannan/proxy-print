@@ -32,9 +32,13 @@ class ProxyController < ApplicationController
           end
         end
       elsif params[:pack_code]
-        # Pack code
-        pack_code = params[:pack_code].strip
-        cards = pack_cards(pack_code)
+        # Pack code(s) - can be comma-separated
+        pack_codes = params[:pack_code].split(',').map(&:strip)
+        cards = []
+        pack_codes.each do |pack_code|
+          Rails.logger.info("Fetching pack: #{pack_code}")
+          cards.concat(pack_cards(pack_code))
+        end
       else
         flash.now[:alert] = "Please provide a deck ID, card IDs, or pack code"
         render :show and return
