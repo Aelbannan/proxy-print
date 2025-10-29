@@ -16,6 +16,8 @@ module PdfGenerator
     # URLs for generic card backs
     @@mythos_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed2.png?strip=info&w=850"
     @@player_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed1.png?strip=info&w=850"
+
+    draw_lines(pdf)
     
     Rails.logger.info("Starting PDF generation with #{cards.size} cards")
     
@@ -113,17 +115,24 @@ module PdfGenerator
 
   # Add a pre-processed image blob to the PDF
   def self.add_image_blob_to_pdf(image_blob, pdf)
+    # Border settings
+    border_width = 0.mm
+    corner_radius = 4.mm
+    
+    # Shrink image by border width on each side
+    image_width = @@card_width 
+    image_height = @@card_height
+    image_x = @@x_position + border_width
+    image_y = @@y_position - border_width
+    
     # Create new StringIO for each copy to avoid rewind issues
     blob_io = StringIO.new(image_blob)
-    pdf.image blob_io, width: @@card_width, at: [@@x_position, @@y_position]
+    pdf.image blob_io, width: image_width, height: image_height, at: [image_x, image_y]
     
-    # Draw 2mm black border with rounded corners on top of the card
-    border_width = 2.mm
-    corner_radius = 3.mm  # Rounded corners
-    
+    # Draw 2mm black border with rounded corners around the full card area
     pdf.stroke_color "000000"
     pdf.line_width border_width
-    pdf.stroke_rounded_rectangle([@@x_position, @@y_position], @@card_width, @@card_height, corner_radius)
+    #pdf.stroke_rounded_rectangle([@@x_position + border_width/2, @@y_position - border_width/2], @@card_width - border_width, @@card_height - border_width, corner_radius)
     
     # Spacing calculations for portrait A4: 3 cards across
     # Move to next position after placing card
@@ -141,7 +150,7 @@ module PdfGenerator
 
   def self.draw_lines(pdf)    
     # Set line properties: white color and thin width
-    pdf.line_width @@card_border_width
+    pdf.line_width 0.1
     
     # Draw vertical cutting lines
     pdf.stroke do
@@ -158,6 +167,23 @@ module PdfGenerator
 
     pdf.stroke do
       pdf.line [@@card_x_margin + (@@card_width + @@card_border_width) * 3 + @@card_border_width/2, 0], [@@card_x_margin + (@@card_width + @@card_border_width) * 3 + @@card_border_width/2, 843]
+    end
+
+    # Draw horizontal cutting lines
+    pdf.stroke do
+      pdf.line [0, @@card_y_start - @@card_border_width/2], [595, @@card_y_start - @@card_border_width/2]
+    end
+
+    pdf.stroke do
+      pdf.line [0, @@card_y_start - @@card_border_width/2 - @@card_height], [595, @@card_y_start - @@card_border_width/2 - @@card_height]
+    end
+
+    pdf.stroke do
+      pdf.line [0, @@card_y_start - @@card_border_width/2 - @@card_height * 2], [595, @@card_y_start - @@card_border_width/2 - @@card_height * 2]
+    end
+
+    pdf.stroke do
+      pdf.line [0, @@card_y_start - @@card_border_width/2 - @@card_height * 3], [595, @@card_y_start - @@card_border_width/2 - @@card_height * 3]
     end
   end
 end
