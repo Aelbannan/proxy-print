@@ -1,5 +1,9 @@
 # Arkham Proxy
 
+```
+eval "$(rbenv init - zsh)" && cd /Users/ahmedelbannan/Ahmed/ahiskali-arkham-print && rails server
+```
+
 This is a web app to generate printable PDF proxies for Arkham Horror: The Card Game cards from [ArkhamDB](https://arkhamdb.com/).
 
 ~~It's live at [https://arkham-proxy.herokuapp.com/](https://arkham-proxy.herokuapp.com/)~~
@@ -56,10 +60,7 @@ Before running this project, make sure you have the following installed:
    bundle install
    ```
 
-3. **Set up the Rails environment** (if needed)
-   ```bash
-   bin/setup
-   ```
+That's it! This application doesn't use a database, so no additional setup is needed.
 
 ## Running the Project
 
@@ -77,7 +78,42 @@ Or use the shorthand:
 rails s
 ```
 
+You can also explicitly specify the environment:
+
+```bash
+rails server -e development
+```
+
+Or combine with a custom port:
+
+```bash
+rails server -e development -p 3001
+```
+
 The application will be available at [http://localhost:3000](http://localhost:3000)
+
+### Troubleshooting
+
+If you encounter any issues:
+
+1. **Missing ImageMagick**: Make sure ImageMagick is installed
+   ```bash
+   # macOS
+   brew install imagemagick
+   
+   # Linux
+   sudo apt-get install imagemagick
+   ```
+
+2. **Bundle install fails**: Make sure you have the correct Ruby version
+   ```bash
+   ruby --version  # Should be 2.3 or higher
+   ```
+
+3. **Port already in use**: Use a different port
+   ```bash
+   rails server -p 3001
+   ```
 
 ### Using a Different Port
 

@@ -10,14 +10,15 @@ module PdfGenerator
     @@card_height = 88.mm
     
     @@card_y_start = 815.pt
-    @@card_border_width = 0.pt
-    @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_border_width * 2)) / 2
+    @@card_space_between = 4.8 # 80px/1200 px per inch * 72 pn per inch
+    @@card_bleed_size = 0.6 # 10px/1200 px per inch * 72 pn per inch
+    @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_space_between * 2 + @@card_bleed_size * 6)) / 2
     
     # URLs for generic card backs
     @@mythos_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed2.png?strip=info&w=850"
     @@player_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed1.png?strip=info&w=850"
 
-    draw_lines(pdf)
+    
     
     Rails.logger.info("Starting PDF generation with #{cards.size} cards")
     
@@ -27,6 +28,7 @@ module PdfGenerator
       
       # Start new page for this batch (except for first batch)
       pdf.start_new_page if batch_index > 0
+      draw_lines(pdf)
       
       # Generate fronts page
       reset_cursor
@@ -43,6 +45,7 @@ module PdfGenerator
       # Start new page for backs
       pdf.start_new_page
       reset_cursor
+      draw_lines(pdf)
       
       # Generate backs page - reverse order horizontally for double-sided printing
       # Reverse every 3 cards (each row) so they align when flipped
@@ -122,8 +125,8 @@ module PdfGenerator
     # Shrink image by border width on each side
     image_width = @@card_width 
     image_height = @@card_height
-    image_x = @@x_position + border_width
-    image_y = @@y_position - border_width
+    image_x = @@x_position + border_width + @@card_bleed_size
+    image_y = @@y_position - border_width - @@card_bleed_size
     
     # Create new StringIO for each copy to avoid rewind issues
     blob_io = StringIO.new(image_blob)
@@ -136,10 +139,10 @@ module PdfGenerator
     
     # Spacing calculations for portrait A4: 3 cards across
     # Move to next position after placing card
-    if ((@@x_position += @@card_width + @@card_border_width) > (@@card_x_margin + (@@card_width + @@card_border_width) * 2))
+    if ((@@x_position += @@card_width + @@card_space_between + @@card_bleed_size * 2) > (@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 6))
       # Move to start of next row
       @@x_position = @@card_x_margin
-      @@y_position -= @@card_height + @@card_border_width
+      @@y_position -= @@card_height + @@card_space_between + @@card_bleed_size * 2
     end
   end
 
@@ -154,36 +157,52 @@ module PdfGenerator
     
     # Draw vertical cutting lines
     pdf.stroke do
-      pdf.line [@@card_x_margin + @@card_border_width/2, 0], [@@card_x_margin + @@card_border_width/2, 843]
-    end
-  
-    pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width + @@card_border_width) + @@card_border_width/2, 0], [@@card_x_margin + (@@card_width + @@card_border_width) + @@card_border_width/2, 843]
-    end
-  
-    pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width + @@card_border_width) * 2 + @@card_border_width/2, 0], [@@card_x_margin + (@@card_width + @@card_border_width) * 2 + @@card_border_width/2, 843]
+      pdf.line [@@card_x_margin, 0], [@@card_x_margin, 843]
     end
 
     pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width + @@card_border_width) * 3 + @@card_border_width/2, 0], [@@card_x_margin + (@@card_width + @@card_border_width) * 3 + @@card_border_width/2, 843]
+      pdf.line [@@card_x_margin + (@@card_width) + @@card_bleed_size * 2, 0], [@@card_x_margin + (@@card_width) + @@card_bleed_size * 2, 843]
+    end
+  
+    pdf.stroke do
+      pdf.line [@@card_x_margin + (@@card_width + @@card_space_between ) + @@card_bleed_size * 2, 0], [@@card_x_margin + (@@card_width + @@card_space_between) + @@card_bleed_size * 2, 843]
+    end
+
+    pdf.stroke do
+      pdf.line [@@card_x_margin + (@@card_width) * 2 + @@card_space_between + @@card_bleed_size * 4, 0], [@@card_x_margin + (@@card_width) * 2 + @@card_space_between + @@card_bleed_size * 4, 843]
+    end
+  
+    pdf.stroke do
+      pdf.line [@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 4, 0], [@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 4, 843]
+    end
+
+    pdf.stroke do
+      pdf.line [@@card_x_margin + (@@card_width ) * 3 + @@card_space_between * 2 + @@card_bleed_size * 6, 0], [@@card_x_margin + (@@card_width ) * 3 + @@card_space_between * 2 + @@card_bleed_size * 6, 843]
     end
 
     # Draw horizontal cutting lines
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_border_width/2], [595, @@card_y_start - @@card_border_width/2]
+      pdf.line [0, @@card_y_start], [595, @@card_y_start]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_border_width/2 - @@card_height], [595, @@card_y_start - @@card_border_width/2 - @@card_height]
+      pdf.line [0, @@card_y_start - @@card_height - @@card_bleed_size * 2], [595, @@card_y_start - @@card_height - @@card_bleed_size * 2]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_border_width/2 - @@card_height * 2], [595, @@card_y_start - @@card_border_width/2 - @@card_height * 2]
+      pdf.line [0, @@card_y_start - @@card_height - @@card_space_between - @@card_bleed_size * 2], [595, @@card_y_start - @@card_height - @@card_space_between - @@card_bleed_size * 2]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_border_width/2 - @@card_height * 3], [595, @@card_y_start - @@card_border_width/2 - @@card_height * 3]
+      pdf.line [0, @@card_y_start - @@card_height * 2 - @@card_space_between - @@card_bleed_size * 4], [595, @@card_y_start - @@card_height * 2 - @@card_space_between - @@card_bleed_size * 4]
+    end
+
+    pdf.stroke do
+      pdf.line [0, @@card_y_start - @@card_height * 2 - @@card_space_between * 2 - @@card_bleed_size * 4], [595, @@card_y_start - @@card_height * 2 - @@card_space_between * 2 - @@card_bleed_size * 4]
+    end
+
+    pdf.stroke do
+      pdf.line [0, @@card_y_start - @@card_height * 3 - @@card_space_between * 2 - @@card_bleed_size * 6], [595, @@card_y_start - @@card_height * 3 - @@card_space_between * 2 - @@card_bleed_size * 6]
     end
   end
 end
