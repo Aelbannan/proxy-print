@@ -98,44 +98,92 @@ module PdfGenerator
       img.rotate "90"
     end
     
+    x_offset = 0
     # Crop single-sided cards to 827px width (centered)
     unless double_sided
       current_width = img.width
       if current_width > 827
         # Calculate offset to center the crop
         x_offset = (current_width - 827) / 2
-        img.crop "827x#{img.height}+#{x_offset}+0"
+        img.crop "827x#{img.height}+#{x_offset}x0"  
         Rails.logger.info("Cropped single-sided card from #{current_width}px to 827px width")
       end
     end
     
-    # Convert to blob
-    image_blob = img.to_blob
+    Rails.logger.info("Image width: #{img.width}, height: #{img.height}")
+
+    # Extract 1px edge strips for bleed
+    width = img.width
+    height = img.height
     
-    # Add to PDF
-    add_image_blob_to_pdf(image_blob, pdf)
+    # Top edge (1px high strip)
+    top_edge = MiniMagick::Image.open(img.path)
+    top_edge.crop "#{width}x1+#{x_offset}+0"
+    
+    # Bottom edge (1px high strip)
+    bottom_edge = MiniMagick::Image.open(img.path)
+    bottom_edge.crop "#{width}x1+#{x_offset}+#{height - 1}"
+    
+    # Left edge (1px wide strip)
+    left_edge = MiniMagick::Image.open(img.path)
+    left_edge.crop "1x#{height}+#{x_offset}+0"
+    
+    # Right edge (1px wide strip)
+    right_edge = MiniMagick::Image.open(img.path)
+    right_edge.crop "1x#{height}+#{width - 1 + x_offset}+0"
+    
+    # Convert main image and edges to blobs
+    image_blob = img.to_blob
+    top_blob = top_edge.to_blob
+    bottom_blob = bottom_edge.to_blob
+    left_blob = left_edge.to_blob
+    right_blob = right_edge.to_blob
+    
+    # Add to PDF with bleed edges
+    add_image_blob_to_pdf_with_bleed(image_blob, top_blob, bottom_blob, left_blob, right_blob, pdf)
   end
 
-  # Add a pre-processed image blob to the PDF
-  def self.add_image_blob_to_pdf(image_blob, pdf)
-    # Border settings
-    border_width = 0.mm
-    corner_radius = 4.mm
+  # Add image with mirrored edge bleed
+  def self.add_image_blob_to_pdf_with_bleed(image_blob, top_blob, bottom_blob, left_blob, right_blob, pdf)
+    # Main card image (no scaling)
+    main_x = @@x_position + @@card_bleed_size
+    main_y = @@y_position - @@card_bleed_size
     
-    # Shrink image by border width on each side
-    image_width = @@card_width 
-    image_height = @@card_height
-    image_x = @@x_position + border_width + @@card_bleed_size
-    image_y = @@y_position - border_width - @@card_bleed_size
-    
-    # Create new StringIO for each copy to avoid rewind issues
     blob_io = StringIO.new(image_blob)
-    pdf.image blob_io, width: image_width, height: image_height, at: [image_x, image_y]
+    pdf.image blob_io, width: @@card_width, height: @@card_height, at: [main_x, main_y]
     
-    # Draw 2mm black border with rounded corners around the full card area
-    pdf.stroke_color "000000"
-    pdf.line_width border_width
-    #pdf.stroke_rounded_rectangle([@@x_position + border_width/2, @@y_position - border_width/2], @@card_width - border_width, @@card_height - border_width, corner_radius)
+    # Top bleed - stretch horizontally, height = bleed_size
+    top_io = StringIO.new(top_blob)
+    pdf.image top_io, width: @@card_width, height: @@card_bleed_size, at: [main_x, main_y + @@card_bleed_size]
+    
+    # Bottom bleed - stretch horizontally, height = bleed_size
+    bottom_io = StringIO.new(bottom_blob)
+    pdf.image bottom_io, width: @@card_width, height: @@card_bleed_size, at: [main_x, main_y - @@card_height]
+    
+    # Left bleed - stretch vertically, width = bleed_size
+    left_io = StringIO.new(left_blob)
+    pdf.image left_io, width: @@card_bleed_size, height: @@card_height, at: [main_x - @@card_bleed_size, main_y]
+    
+    # Right bleed - stretch vertically, width = bleed_size
+    right_io = StringIO.new(right_blob)
+    pdf.image right_io, width: @@card_bleed_size, height: @@card_height, at: [main_x + @@card_width, main_y]
+    
+    # Corner bleeds - use nearest edge pixel
+    # Top-left corner
+    top_left_io = StringIO.new(left_blob)
+    pdf.image top_left_io, width: @@card_bleed_size, height: @@card_bleed_size, at: [main_x - @@card_bleed_size, main_y + @@card_bleed_size]
+    
+    # Top-right corner
+    top_right_io = StringIO.new(right_blob)
+    pdf.image top_right_io, width: @@card_bleed_size, height: @@card_bleed_size, at: [main_x + @@card_width, main_y + @@card_bleed_size]
+    
+    # Bottom-left corner
+    bottom_left_io = StringIO.new(left_blob)
+    pdf.image bottom_left_io, width: @@card_bleed_size, height: @@card_bleed_size, at: [main_x - @@card_bleed_size, main_y - @@card_height]
+    
+    # Bottom-right corner
+    bottom_right_io = StringIO.new(right_blob)
+    pdf.image bottom_right_io, width: @@card_bleed_size, height: @@card_bleed_size, at: [main_x + @@card_width, main_y - @@card_height]
     
     # Spacing calculations for portrait A4: 3 cards across
     # Move to next position after placing card
@@ -157,52 +205,52 @@ module PdfGenerator
     
     # Draw vertical cutting lines
     pdf.stroke do
-      pdf.line [@@card_x_margin, 0], [@@card_x_margin, 843]
+      pdf.line [@@card_x_margin + @@card_bleed_size, 0], [@@card_x_margin + @@card_bleed_size, 843]
     end
 
     pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width) + @@card_bleed_size * 2, 0], [@@card_x_margin + (@@card_width) + @@card_bleed_size * 2, 843]
+      pdf.line [@@card_x_margin + (@@card_width) + @@card_bleed_size, 0], [@@card_x_margin + (@@card_width) + @@card_bleed_size, 843]
     end
   
     pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width + @@card_space_between ) + @@card_bleed_size * 2, 0], [@@card_x_margin + (@@card_width + @@card_space_between) + @@card_bleed_size * 2, 843]
+      pdf.line [@@card_x_margin + (@@card_width + @@card_space_between ) + @@card_bleed_size * 3, 0], [@@card_x_margin + (@@card_width + @@card_space_between) + @@card_bleed_size * 3, 843]
     end
 
     pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width) * 2 + @@card_space_between + @@card_bleed_size * 4, 0], [@@card_x_margin + (@@card_width) * 2 + @@card_space_between + @@card_bleed_size * 4, 843]
+      pdf.line [@@card_x_margin + (@@card_width) * 2 + @@card_space_between + @@card_bleed_size * 3, 0], [@@card_x_margin + (@@card_width) * 2 + @@card_space_between + @@card_bleed_size * 3, 843]
     end
   
     pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 4, 0], [@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 4, 843]
+      pdf.line [@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 5, 0], [@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 5, 843]
     end
 
     pdf.stroke do
-      pdf.line [@@card_x_margin + (@@card_width ) * 3 + @@card_space_between * 2 + @@card_bleed_size * 6, 0], [@@card_x_margin + (@@card_width ) * 3 + @@card_space_between * 2 + @@card_bleed_size * 6, 843]
+      pdf.line [@@card_x_margin + (@@card_width ) * 3 + @@card_space_between * 2 + @@card_bleed_size * 5, 0], [@@card_x_margin + (@@card_width ) * 3 + @@card_space_between * 2 + @@card_bleed_size * 5, 843]
     end
 
     # Draw horizontal cutting lines
     pdf.stroke do
-      pdf.line [0, @@card_y_start], [595, @@card_y_start]
+      pdf.line [0, @@card_y_start - @@card_bleed_size], [595, @@card_y_start - @@card_bleed_size]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_height - @@card_bleed_size * 2], [595, @@card_y_start - @@card_height - @@card_bleed_size * 2]
+      pdf.line [0, @@card_y_start - @@card_height - @@card_bleed_size], [595, @@card_y_start - @@card_height - @@card_bleed_size]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_height - @@card_space_between - @@card_bleed_size * 2], [595, @@card_y_start - @@card_height - @@card_space_between - @@card_bleed_size * 2]
+      pdf.line [0, @@card_y_start - @@card_height - @@card_space_between - @@card_bleed_size * 3], [595, @@card_y_start - @@card_height - @@card_space_between - @@card_bleed_size * 3]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_height * 2 - @@card_space_between - @@card_bleed_size * 4], [595, @@card_y_start - @@card_height * 2 - @@card_space_between - @@card_bleed_size * 4]
+      pdf.line [0, @@card_y_start - @@card_height * 2 - @@card_space_between - @@card_bleed_size * 3], [595, @@card_y_start - @@card_height * 2 - @@card_space_between - @@card_bleed_size * 3]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_height * 2 - @@card_space_between * 2 - @@card_bleed_size * 4], [595, @@card_y_start - @@card_height * 2 - @@card_space_between * 2 - @@card_bleed_size * 4]
+      pdf.line [0, @@card_y_start - @@card_height * 2 - @@card_space_between * 2 - @@card_bleed_size * 5], [595, @@card_y_start - @@card_height * 2 - @@card_space_between * 2 - @@card_bleed_size * 5]
     end
 
     pdf.stroke do
-      pdf.line [0, @@card_y_start - @@card_height * 3 - @@card_space_between * 2 - @@card_bleed_size * 6], [595, @@card_y_start - @@card_height * 3 - @@card_space_between * 2 - @@card_bleed_size * 6]
+      pdf.line [0, @@card_y_start - @@card_height * 3 - @@card_space_between * 2 - @@card_bleed_size * 5], [595, @@card_y_start - @@card_height * 3 - @@card_space_between * 2 - @@card_bleed_size * 5]
     end
   end
 end
