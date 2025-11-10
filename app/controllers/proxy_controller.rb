@@ -39,6 +39,15 @@ class ProxyController < ApplicationController
           Rails.logger.info("Fetching pack: #{pack_code}")
           cards.concat(pack_cards(pack_code))
         end
+        
+        # Sort all cards after combining multiple packs: double-sided first, then by faction
+        cards.sort_by! do |card|
+          [
+            card[:double_sided] ? 0 : 1,  # Double-sided cards first
+            card[:faction] || "zzz"        # Then sort alphabetically by faction
+          ]
+        end
+        Rails.logger.info("Final sort: #{cards.size} total cards sorted by double-sided then faction")
       else
         flash.now[:alert] = "Please provide a deck ID, card IDs, or pack code"
         render :show and return
@@ -68,7 +77,7 @@ class ProxyController < ApplicationController
   end
 
   # Shared function to convert card data to card metadata
-  # Returns hash with front image, back image (if double-sided), and faction
+  # Returns hash with front image, back image (if double-sided), faction, and type
   def card_data_to_metadata(card_data)
     if card_data.nil? || card_data["code"].nil?
       Rails.logger.error("Invalid card data received")
@@ -78,7 +87,8 @@ class ProxyController < ApplicationController
     metadata = {
       front_image: "https://assets.arkham.build/optimized/#{card_data["code"]}.avif",
       double_sided: card_data["double_sided"] == true,
-      faction: card_data["faction_code"] || "neutral"
+      faction: card_data["faction_code"] || "neutral",
+      type: card_data["type_code"] || "unknown"
     }
     
     # If card is double-sided, include the back image
@@ -118,6 +128,15 @@ class ProxyController < ApplicationController
       end
     end
     
+    # Sort cards: double-sided first, then by faction
+    cards.sort_by! do |card|
+      [
+        card[:double_sided] ? 0 : 1,  # Double-sided cards first (0 comes before 1)
+        card[:faction] || "zzz"        # Then sort alphabetically by faction
+      ]
+    end
+    
+    Rails.logger.info("Sorted #{cards.size} cards: double-sided first, then by faction")
     cards
   end
 end
