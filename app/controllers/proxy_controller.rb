@@ -40,14 +40,14 @@ class ProxyController < ApplicationController
           cards.concat(pack_cards(pack_code))
         end
         
-        # Sort all cards after combining multiple packs: double-sided first, then by faction
+        # Sort all cards after combining multiple packs: double-sided first, then mythos, then other factions
         cards.sort_by! do |card|
           [
-            card[:double_sided] ? 0 : 1,  # Double-sided cards first
-            card[:faction] || "zzz"        # Then sort alphabetically by faction
+            card[:double_sided] ? 0 : 1,                           # Double-sided cards first
+            card[:faction] == "mythos" ? "0" : card[:faction] || "zzz"  # Mythos first, then alphabetically
           ]
         end
-        Rails.logger.info("Final sort: #{cards.size} total cards sorted by double-sided then faction")
+        Rails.logger.info("Final sort: #{cards.size} total cards sorted by double-sided, mythos first, then faction")
       else
         flash.now[:alert] = "Please provide a deck ID, card IDs, or pack code"
         render :show and return
@@ -128,15 +128,15 @@ class ProxyController < ApplicationController
       end
     end
     
-    # Sort cards: double-sided first, then by faction
+    # Sort cards: double-sided first, then mythos, then other factions
     cards.sort_by! do |card|
       [
-        card[:double_sided] ? 0 : 1,  # Double-sided cards first (0 comes before 1)
-        card[:faction] || "zzz"        # Then sort alphabetically by faction
+        card[:double_sided] ? 0 : 1,                           # Double-sided cards first
+        card[:faction] == "mythos" ? "0" : card[:faction] || "zzz"  # Mythos first, then alphabetically
       ]
     end
     
-    Rails.logger.info("Sorted #{cards.size} cards: double-sided first, then by faction")
+    Rails.logger.info("Sorted #{cards.size} cards: double-sided first, mythos first, then by faction")
     cards
   end
 end

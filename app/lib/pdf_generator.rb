@@ -10,8 +10,8 @@ module PdfGenerator
     @@card_height = 88.mm
     
     @@card_y_start = 815.pt
-    @@card_space_between = 4.8 # 80px/1200 px per inch * 72 pn per inch
-    @@card_bleed_size = 0.6 # 10px/1200 px per inch * 72 pn per inch
+    @@card_space_between = 3.6.pt # 80px/1200 px per inch * 72 pn per inch
+    @@card_bleed_size = 1.2.pt # 10px/1200 px per inch * 72 pn per inch
     @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_space_between * 2 + @@card_bleed_size * 6)) / 2
     
     # URLs for generic card backs
