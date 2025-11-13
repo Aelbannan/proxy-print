@@ -53,7 +53,10 @@ class ProxyController < ApplicationController
         render :show and return
       end
       
-      send_data PdfGenerator.generate(cards), filename: "cards.pdf"
+      # Convert card metadata to image URL pairs for PDF generation
+      card_pairs = prepare_card_pairs(cards)
+      
+      send_data PdfGenerator.generate(card_pairs), filename: "cards.pdf"
     rescue MiniMagick::Error => ex
       Rails.logger.error("ImageMagick error: #{ex.class} - #{ex.message}")
       Rails.logger.error(ex.backtrace.first(10).join("\n"))
@@ -138,5 +141,33 @@ class ProxyController < ApplicationController
     
     Rails.logger.info("Sorted #{cards.size} cards: double-sided first, mythos first, then by faction")
     cards
+  end
+
+  # Convert Arkham Horror card metadata to generic card pairs for PDF generation
+  # This method contains all game-specific logic for determining card backs
+  def prepare_card_pairs(cards)
+    # Generic card back URLs
+    mythos_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed2.png?strip=info&w=850"
+    player_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed1.png?strip=info&w=850"
+    
+    cards.map do |card|
+      # Determine back image based on card properties
+      back_url = if card[:double_sided] && card[:back_image]
+        # Use specific back for double-sided cards
+        card[:back_image]
+      elsif card[:faction] == "mythos"
+        # Use mythos generic back
+        mythos_back_url
+      else
+        # Use player generic back
+        player_back_url
+      end
+      
+      # Return generic format: just front and back URLs
+      {
+        front: card[:front_image],
+        back: back_url
+      }
+    end
   end
 end

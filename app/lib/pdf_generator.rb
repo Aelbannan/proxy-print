@@ -3,27 +3,24 @@ require "prawn/measurement_extensions"
 require 'mini_magick'
 
 module PdfGenerator
-  def self.generate(cards)
+  # Generate PDF from card image URLs
+  # @param card_pairs [Array<Hash>] Array of hashes with :front and :back image URLs
+  # Example: [{ front: "url1", back: "url2" }, { front: "url3", back: "url4" }]
+  def self.generate(card_pairs)
     pdf = Prawn::Document.new(:page_size => "A4", :page_layout => :portrait, :margin => 0)
 
     @@card_width = 63.mm
     @@card_height = 88.mm
     
     @@card_y_start = 815.pt
-    @@card_space_between = 3.6.pt # 80px/1200 px per inch * 72 pn per inch
-    @@card_bleed_size = 1.2.pt # 10px/1200 px per inch * 72 pn per inch
+    @@card_space_between = 4.8 # 80px/1200 px per inch * 72 pn per inch
+    @@card_bleed_size = 0.6 # 10px/1200 px per inch * 72 pn per inch
     @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_space_between * 2 + @@card_bleed_size * 6)) / 2
     
-    # URLs for generic card backs
-    @@mythos_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed2.png?strip=info&w=850"
-    @@player_back_url = "https://hallofarkham.com/wp-content/uploads/2021/12/bleed1.png?strip=info&w=850"
-
-    
-    
-    Rails.logger.info("Starting PDF generation with #{cards.size} cards")
+    Rails.logger.info("Starting PDF generation with #{card_pairs.size} cards")
     
     # Process cards in groups of 9 (one page of fronts, one page of backs)
-    cards.each_slice(9).with_index do |card_batch, batch_index|
+    card_pairs.each_slice(9).with_index do |card_batch, batch_index|
       Rails.logger.info("Processing batch #{batch_index + 1}: #{card_batch.size} cards")
       
       # Start new page for this batch (except for first batch)
@@ -32,10 +29,10 @@ module PdfGenerator
       
       # Generate fronts page
       reset_cursor
-      card_batch.each_with_index do |card_metadata, card_index|
+      card_batch.each_with_index do |card_pair, card_index|
         begin
           Rails.logger.info("Processing front #{card_index + 1}/#{card_batch.size}")
-          process_and_add_image(card_metadata[:front_image], pdf, card_metadata[:double_sided])
+          process_and_add_image(card_pair[:front], pdf)
         rescue => e
           Rails.logger.error("Error processing front: #{e.message}")
           raise e
@@ -54,23 +51,10 @@ module PdfGenerator
         reversed_batch.concat(row.reverse)
       end
       
-      reversed_batch.each_with_index do |card_metadata, card_index|
+      reversed_batch.each_with_index do |card_pair, card_index|
         begin
           Rails.logger.info("Processing back #{card_index + 1}/#{card_batch.size}")
-          
-          # Determine which back image to use and whether it's from a double-sided card
-          is_specific_back = card_metadata[:double_sided] && card_metadata[:back_image]
-          
-          back_image_url = if is_specific_back
-            card_metadata[:back_image]
-          elsif card_metadata[:faction] == "mythos"
-            @@mythos_back_url
-          else
-            @@player_back_url
-          end
-          
-          # Pass true for double_sided only if it's a specific back from a double-sided card
-          process_and_add_image(back_image_url, pdf, is_specific_back)
+          process_and_add_image(card_pair[:back], pdf)
         rescue => e
           Rails.logger.error("Error processing back: #{e.message}")
           raise e
@@ -82,7 +66,7 @@ module PdfGenerator
     pdf.render
   end
   
-  def self.process_and_add_image(image_url, pdf, double_sided = true)
+  def self.process_and_add_image(image_url, pdf)
     image = URI.open(image_url)
     
     # Process image
@@ -98,18 +82,6 @@ module PdfGenerator
       img.rotate "90"
     end
     
-    x_offset = 0
-    # Crop single-sided cards to 827px width (centered)
-    unless double_sided
-      current_width = img.width
-      if current_width > 827
-        # Calculate offset to center the crop
-        x_offset = (current_width - 827) / 2
-        img.crop "827x#{img.height}+#{x_offset}x0"  
-        Rails.logger.info("Cropped single-sided card from #{current_width}px to 827px width")
-      end
-    end
-    
     Rails.logger.info("Image width: #{img.width}, height: #{img.height}")
 
     # Extract 1px edge strips for bleed
@@ -118,19 +90,19 @@ module PdfGenerator
     
     # Top edge (1px high strip)
     top_edge = MiniMagick::Image.open(img.path)
-    top_edge.crop "#{width}x1+#{x_offset}+0"
+    top_edge.crop "#{width}x1+0+0"
     
     # Bottom edge (1px high strip)
     bottom_edge = MiniMagick::Image.open(img.path)
-    bottom_edge.crop "#{width}x1+#{x_offset}+#{height - 1}"
+    bottom_edge.crop "#{width}x1+0+#{height - 1}"
     
     # Left edge (1px wide strip)
     left_edge = MiniMagick::Image.open(img.path)
-    left_edge.crop "1x#{height}+#{x_offset}+0"
+    left_edge.crop "1x#{height}+0+0"
     
     # Right edge (1px wide strip)
     right_edge = MiniMagick::Image.open(img.path)
-    right_edge.crop "1x#{height}+#{width - 1 + x_offset}+0"
+    right_edge.crop "1x#{height}+#{width - 1}+0"
     
     # Convert main image and edges to blobs
     image_blob = img.to_blob
