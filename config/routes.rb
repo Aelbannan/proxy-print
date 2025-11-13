@@ -5,5 +5,6 @@ Rails.application.routes.draw do
   get '/deck/:id', to: 'proxy#new'
   get '/card', to: 'proxy#new'
   get '/pack', to: 'proxy#new'
+  post '/netrunner', to: 'proxy#netrunner'
   # For details on the DSL available within this file, see http://guides.rubyonrails.org/routing.html
 end

@@ -170,4 +170,154 @@ class ProxyController < ApplicationController
       }
     end
   end
+
+  # Netrunner card proxy generation
+  def netrunner
+    begin
+      unless params[:card_list].present?
+        flash.now[:alert] = "Please provide a card list"
+        render :show and return
+      end
+
+      # Parse card list
+      card_list = parse_netrunner_card_list(params[:card_list])
+      
+      # Fetch and match cards from NetrunnerDB
+      cards = fetch_netrunner_cards(card_list)
+      
+      # Convert to card pairs
+      card_pairs = prepare_netrunner_card_pairs(cards)
+      
+      send_data PdfGenerator.generate(card_pairs), filename: "netrunner_cards.pdf"
+    rescue StandardError => ex
+      Rails.logger.error("Netrunner error: #{ex.class} - #{ex.message}")
+      Rails.logger.error(ex.backtrace.first(10).join("\n"))
+      flash.now[:alert] = "Error generating Netrunner PDF. Check server logs."
+      render :show
+    end
+  end
+
+  private
+
+  # Parse Netrunner card list in format "2x Card Title"
+  def parse_netrunner_card_list(card_list_text)
+    parsed_cards = []
+    
+    card_list_text.each_line do |line|
+      line = line.strip
+      next if line.empty?
+      
+      # Match format: "2x Card Title" or "Card Title"
+      if line =~ /^(\d+)x?\s+(.+)$/i
+        quantity = $1.to_i
+        title = $2.strip
+      else
+        quantity = 1
+        title = line.strip
+      end
+      
+      quantity.times { parsed_cards << title }
+    end
+    
+    Rails.logger.info("Parsed #{parsed_cards.size} cards from input")
+    parsed_cards
+  end
+
+  # Fetch cards from NetrunnerDB and match titles
+  def fetch_netrunner_cards(card_titles)
+    # Fetch all cards from NetrunnerDB
+    netrunner_api = "https://netrunnerdb.com/api/2.0/public/cards"
+    all_cards_data = HTTParty.get(netrunner_api)
+    all_cards = all_cards_data["data"] || []
+    
+    Rails.logger.info("Fetched #{all_cards.size} cards from NetrunnerDB")
+    
+    cards = []
+    card_titles.each do |title|
+      card = find_best_netrunner_match(title, all_cards)
+      if card
+        # Use image_url if available, otherwise use fallback URL
+        image_url = card["image_url"]
+        if image_url.nil? && card["code"]
+          image_url = "https://card-images.netrunnerdb.com/v2/xlarge/#{card["code"]}.webp"
+          Rails.logger.info("Using fallback image URL for #{card["title"]} (#{card["code"]})")
+        end
+        
+        if image_url
+          cards << {
+            title: card["title"],
+            image_url: image_url,
+            faction: card["faction_code"],
+            side: card["side_code"]  # "corp" or "runner"
+          }
+        else
+          Rails.logger.warn("No match or no image available for: #{title}")
+        end
+      else
+        Rails.logger.warn("No match found for: #{title}")
+      end
+    end
+    
+    Rails.logger.info("Successfully matched #{cards.size} out of #{card_titles.size} cards")
+    cards
+  end
+
+  # Find best matching card for a title
+  def find_best_netrunner_match(search_title, all_cards)
+    search_normalized = search_title.downcase.strip
+    
+    # Find all matching cards
+    matches = all_cards.select do |card|
+      card["title"]&.downcase&.include?(search_normalized) ||
+      search_normalized.include?(card["title"]&.downcase || "")
+    end
+    
+    return nil if matches.empty?
+    
+    # Filter out System Gateway cards unless explicitly requested
+    unless search_title.include?("System Gateway")
+      non_sg = matches.reject { |c| c["title"]&.include?("(System Gateway)") }
+      matches = non_sg unless non_sg.empty?
+    end
+    
+    # Sort by:
+    # 1. Exact title match first
+    # 2. Then by date (newer first) using card code
+    # 3. Then by title similarity
+    matches.sort_by do |card|
+      card_title = card["title"]&.downcase || ""
+      exact_match = (card_title == search_normalized) ? 0 : 1
+      
+      # Extract numeric part of code for rough date ordering (higher = newer)
+      code_number = card["code"]&.scan(/\d+/)&.first&.to_i || 0
+      date_sort = -code_number  # Negative for descending order
+      
+      # Calculate title similarity (Levenshtein distance approximation)
+      title_diff = (card_title.length - search_normalized.length).abs
+      
+      [exact_match, date_sort, title_diff]
+    end.first
+  end
+
+  # Convert Netrunner cards to card pairs with appropriate backs
+  def prepare_netrunner_card_pairs(cards)
+    cards.map do |card|
+      # Determine back image based on side
+      back_filename = case card[:side]
+      when "corp"
+        "Back Corp.png"
+      when "runner"
+        "Back Runner.png"
+      else
+        "Back Runner.png"  # Default to runner
+      end
+      
+      back_url = "file://#{Rails.root}/images/#{back_filename}"
+      
+      {
+        front: card[:image_url],
+        back: back_url
+      }
+    end
+  end
 end
