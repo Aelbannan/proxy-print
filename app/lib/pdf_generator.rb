@@ -13,8 +13,8 @@ module PdfGenerator
     @@card_height = 88.mm
     
     @@card_y_start = 815.pt
-    @@card_space_between = 4.8 # 80px/1200 px per inch * 72 pn per inch
-    @@card_bleed_size = 0.6 # 10px/1200 px per inch * 72 pn per inch
+    @@card_space_between = 3.6 # 80px/1200 px per inch * 72 pn per inch
+    @@card_bleed_size = 1.2 # 10px/1200 px per inch * 72 pn per inch
     @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_space_between * 2 + @@card_bleed_size * 6)) / 2
     
     Rails.logger.info("Starting PDF generation with #{card_pairs.size} cards")
@@ -66,11 +66,16 @@ module PdfGenerator
     pdf.render
   end
   
-  def self.process_and_add_image(image_url, pdf)
-    image = URI.open(image_url)
-    
-    # Process image
-    img = MiniMagick::Image.read(image)
+  def self.process_and_add_image(image_source, pdf)
+    # Check if it's a URL or local file path
+    if image_source.start_with?('http://', 'https://')
+      # It's a URL, use URI.open
+      image = URI.open(image_source)
+      img = MiniMagick::Image.read(image)
+    else
+      # It's a local file path, open directly
+      img = MiniMagick::Image.open(image_source)
+    end
     
     # Convert AVIF or other unsupported formats to PNG
     if img.type == "AVIF" || !["JPEG", "PNG", "JPG"].include?(img.type)

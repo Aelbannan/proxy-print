@@ -199,7 +199,7 @@ class ProxyController < ApplicationController
 
   private
 
-  # Parse Netrunner card list in format "2x Card Title"
+  # Parse Netrunner card list in format "2x Card Title" or "2× Card Title"
   def parse_netrunner_card_list(card_list_text)
     parsed_cards = []
     
@@ -207,8 +207,9 @@ class ProxyController < ApplicationController
       line = line.strip
       next if line.empty?
       
-      # Match format: "2x Card Title" or "Card Title"
-      if line =~ /^(\d+)x?\s+(.+)$/i
+      # Match format: "2x Card Title", "2× Card Title", or just "Card Title"
+      # Support both 'x' and '×' (multiplication sign)
+      if line =~ /^(\d+)\s*[x×]\s*(.+)$/i
         quantity = $1.to_i
         title = $2.strip
       else
@@ -312,11 +313,12 @@ class ProxyController < ApplicationController
         "Back Runner.png"  # Default to runner
       end
       
-      back_url = "file://#{Rails.root}/images/#{back_filename}"
+      # Use local file path directly (without file:// prefix)
+      back_path = "#{Rails.root}/images/#{back_filename}"
       
       {
         front: card[:image_url],
-        back: back_url
+        back: back_path
       }
     end
   end
