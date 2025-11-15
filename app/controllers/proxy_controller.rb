@@ -197,6 +197,36 @@ class ProxyController < ApplicationController
     end
   end
 
+  # Netrunner pack proxy generation
+  def netrunner_pack
+    begin
+      unless params[:pack_code].present?
+        flash.now[:alert] = "Please provide a pack code"
+        render :show and return
+      end
+
+      pack_code = params[:pack_code].strip
+      
+      # Fetch cards from pack
+      cards = fetch_netrunner_pack_cards(pack_code)
+      
+      if cards.empty?
+        flash.now[:alert] = "No cards found for pack code: #{pack_code}"
+        render :show and return
+      end
+      
+      # Convert to card pairs
+      card_pairs = prepare_netrunner_card_pairs(cards)
+      
+      send_data PdfGenerator.generate(card_pairs), filename: "netrunner_#{pack_code}.pdf"
+    rescue StandardError => ex
+      Rails.logger.error("Netrunner pack error: #{ex.class} - #{ex.message}")
+      Rails.logger.error(ex.backtrace.first(10).join("\n"))
+      flash.now[:alert] = "Error generating Netrunner pack PDF. Check server logs."
+      render :show
+    end
+  end
+
   private
 
   # Parse Netrunner card list in format "2x Card Title" or "2× Card Title"
@@ -298,6 +328,51 @@ class ProxyController < ApplicationController
       
       [exact_match, date_sort, title_diff]
     end.first
+  end
+
+  # Fetch all cards from a Netrunner pack
+  def fetch_netrunner_pack_cards(pack_code)
+    # Fetch all cards
+    netrunner_api = "https://netrunnerdb.com/api/2.0/public/cards"
+    all_cards_data = HTTParty.get(netrunner_api)
+    all_cards = all_cards_data["data"] || []
+    
+    Rails.logger.info("Fetched #{all_cards.size} cards from NetrunnerDB")
+    
+    # Filter by pack code
+    pack_cards = all_cards.select { |card| card["pack_code"] == pack_code }
+    
+    Rails.logger.info("Found #{pack_cards.size} cards in pack #{pack_code}")
+    
+    cards = []
+    pack_cards.each do |card|
+      # Get quantity (usually 3 for player cards, 1 for identities)
+      quantity = card["quantity"] || 1
+      
+      # Use image_url if available, otherwise use fallback URL
+      image_url = card["image_url"]
+      if image_url.nil? && card["code"]
+        image_url = "https://card-images.netrunnerdb.com/v2/xlarge/#{card["code"]}.webp"
+        Rails.logger.info("Using fallback image URL for #{card["title"]} (#{card["code"]})")
+      end
+      
+      if image_url
+        # Add card quantity times
+        quantity.times do
+          cards << {
+            title: card["title"],
+            image_url: image_url,
+            faction: card["faction_code"],
+            side: card["side_code"]
+          }
+        end
+      else
+        Rails.logger.warn("No image available for: #{card["title"]}")
+      end
+    end
+    
+    Rails.logger.info("Generated #{cards.size} total cards (with quantities) from pack")
+    cards
   end
 
   # Convert Netrunner cards to card pairs with appropriate backs
