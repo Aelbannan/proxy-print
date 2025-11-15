@@ -227,6 +227,117 @@ class ProxyController < ApplicationController
     end
   end
 
+  # Generic single-sided card from local folder
+  def folder_single
+    begin
+      unless params[:folder_path].present? && params[:back_image_path].present?
+        flash.now[:alert] = "Please provide both folder path and back image path"
+        render :show and return
+      end
+
+      folder_path = params[:folder_path].strip
+      back_image_path = params[:back_image_path].strip
+      
+      # Validate paths exist
+      unless Dir.exist?(folder_path)
+        flash.now[:alert] = "Folder path does not exist: #{folder_path}"
+        render :show and return
+      end
+      
+      unless File.exist?(back_image_path)
+        flash.now[:alert] = "Back image path does not exist: #{back_image_path}"
+        render :show and return
+      end
+      
+      # Get all image files from folder, sorted alphabetically
+      image_extensions = %w[.jpg .jpeg .png .gif .bmp .webp .avif]
+      front_images = Dir.glob(File.join(folder_path, '*'))
+        .select { |f| File.file?(f) && image_extensions.include?(File.extname(f).downcase) }
+        .sort
+      
+      if front_images.empty?
+        flash.now[:alert] = "No image files found in folder: #{folder_path}"
+        render :show and return
+      end
+      
+      # Create card pairs with same back for all
+      card_pairs = front_images.map do |front_path|
+        {
+          front: front_path,
+          back: back_image_path
+        }
+      end
+      
+      Rails.logger.info("Processing #{card_pairs.size} single-sided cards from folder")
+      
+      # Generate PDF
+      pdf_data = PdfGenerator.generate(card_pairs)
+      
+      send_data pdf_data, filename: "custom_cards_single.pdf"
+    rescue StandardError => ex
+      Rails.logger.error("Folder single error: #{ex.class} - #{ex.message}")
+      Rails.logger.error(ex.backtrace.first(10).join("\n"))
+      flash.now[:alert] = "Error generating PDF from folder. Check server logs."
+      render :show
+    end
+  end
+
+  # Generic double-sided card from local folder
+  def folder_double
+    begin
+      unless params[:folder_path].present?
+        flash.now[:alert] = "Please provide folder path"
+        render :show and return
+      end
+
+      folder_path = params[:folder_path].strip
+      
+      # Validate path exists
+      unless Dir.exist?(folder_path)
+        flash.now[:alert] = "Folder path does not exist: #{folder_path}"
+        render :show and return
+      end
+      
+      # Get all image files from folder, sorted alphabetically
+      image_extensions = %w[.jpg .jpeg .png .gif .bmp .webp .avif]
+      all_images = Dir.glob(File.join(folder_path, '*'))
+        .select { |f| File.file?(f) && image_extensions.include?(File.extname(f).downcase) }
+        .sort
+      
+      if all_images.empty?
+        flash.now[:alert] = "No image files found in folder: #{folder_path}"
+        render :show and return
+      end
+      
+      # Check for even number of images
+      if all_images.size.odd?
+        flash.now[:alert] = "Folder contains odd number of images (#{all_images.size}). Need pairs of front/back."
+        render :show and return
+      end
+      
+      # Create card pairs (every 2 images = 1 card)
+      card_pairs = []
+      all_images.each_slice(2) do |front, back|
+        card_pairs << {
+          front: front,
+          back: back
+        }
+      end
+      
+      Rails.logger.info("Processing #{card_pairs.size} double-sided cards from folder")
+      
+      # Generate PDF
+      pdf_data = PdfGenerator.generate(card_pairs)
+      
+      send_data pdf_data, filename: "custom_cards_double.pdf"
+    rescue StandardError => ex
+      Rails.logger.error("Folder double error: #{ex.class} - #{ex.message}")
+      Rails.logger.error(ex.backtrace.first(10).join("\n"))
+      flash.now[:alert] = "Error generating PDF from folder. Check server logs."
+      render :show
+    end
+  end
+
   private
 
   # Parse Netrunner card list in format "2x Card Title" or "2× Card Title"
