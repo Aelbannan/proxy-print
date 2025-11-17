@@ -37,9 +37,9 @@
 <p>
 <form action="/folder/single" method="post" class="pdf-form">
   <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
-  <%= label_tag(:folder_path, "Folder Path (contains card front images)") %>
+  <%= label_tag(:folder_paths, "Folder Paths (one per line, contains card front images)") %>
   <br>
-  <%= text_field_tag(:folder_path, nil, placeholder: "/Users/username/Desktop/cards", size: 60) %>
+  <%= text_area_tag(:folder_paths, nil, placeholder: "/Users/username/Desktop/cards1\n/Users/username/Desktop/cards2", rows: 4, cols: 60) %>
   <br><br>
   <%= label_tag(:back_image_path, "Card Back Image Path (full path to back image)") %>
   <br>
@@ -53,9 +53,9 @@
 <p>
 <form action="/folder/double" method="post" class="pdf-form">
   <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
-  <%= label_tag(:folder_path, "Folder Path (images sorted alphabetically: 1st=front, 2nd=back, etc.)") %>
+  <%= label_tag(:folder_paths, "Folder Paths (one per line, images sorted alphabetically: 1st=front, 2nd=back, etc.)") %>
   <br>
-  <%= text_field_tag(:folder_path, nil, placeholder: "/Users/username/Desktop/cards", size: 60) %>
+  <%= text_area_tag(:folder_paths, nil, placeholder: "/Users/username/Desktop/cards1\n/Users/username/Desktop/cards2", rows: 4, cols: 60) %>
   <br><br>
   <%= submit_tag("Generate Double-Sided PDF", data: { disable_with: false }) %>
 </form>

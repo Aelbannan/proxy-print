@@ -227,48 +227,63 @@ class ProxyController < ApplicationController
     end
   end
 
-  # Generic single-sided card from local folder
+  # Generic single-sided card from local folder(s)
   def folder_single
     begin
-      unless params[:folder_path].present? && params[:back_image_path].present?
-        flash.now[:alert] = "Please provide both folder path and back image path"
+      unless params[:folder_paths].present? && params[:back_image_path].present?
+        flash.now[:alert] = "Please provide both folder paths and back image path"
         render :show and return
       end
 
-      folder_path = params[:folder_path].strip
+      # Parse folder paths (one per line)
+      folder_paths = params[:folder_paths].strip.split("\n").map(&:strip).reject(&:empty?)
       back_image_path = params[:back_image_path].strip
       
-      # Validate paths exist
-      unless Dir.exist?(folder_path)
-        flash.now[:alert] = "Folder path does not exist: #{folder_path}"
+      if folder_paths.empty?
+        flash.now[:alert] = "Please provide at least one folder path"
         render :show and return
       end
       
+      # Validate back image path exists
       unless File.exist?(back_image_path)
         flash.now[:alert] = "Back image path does not exist: #{back_image_path}"
         render :show and return
       end
       
-      # Get all image files from folder, sorted alphabetically
+      # Collect all front images from all folders
       image_extensions = %w[.jpg .jpeg .png .gif .bmp .webp .avif]
-      front_images = Dir.glob(File.join(folder_path, '*'))
-        .select { |f| File.file?(f) && image_extensions.include?(File.extname(f).downcase) }
-        .sort
+      all_front_images = []
       
-      if front_images.empty?
-        flash.now[:alert] = "No image files found in folder: #{folder_path}"
+      folder_paths.each do |folder_path|
+        # Validate folder exists
+        unless Dir.exist?(folder_path)
+          flash.now[:alert] = "Folder path does not exist: #{folder_path}"
+          render :show and return
+        end
+        
+        # Get image files from this folder
+        folder_images = Dir.glob(File.join(folder_path, '*'))
+          .select { |f| File.file?(f) && image_extensions.include?(File.extname(f).downcase) }
+          .sort
+        
+        Rails.logger.info("Found #{folder_images.size} images in #{folder_path}")
+        all_front_images.concat(folder_images)
+      end
+      
+      if all_front_images.empty?
+        flash.now[:alert] = "No image files found in any of the provided folders"
         render :show and return
       end
       
       # Create card pairs with same back for all
-      card_pairs = front_images.map do |front_path|
+      card_pairs = all_front_images.map do |front_path|
         {
           front: front_path,
           back: back_image_path
         }
       end
       
-      Rails.logger.info("Processing #{card_pairs.size} single-sided cards from folder")
+      Rails.logger.info("Processing #{card_pairs.size} single-sided cards from #{folder_paths.size} folder(s)")
       
       # Generate PDF
       pdf_data = PdfGenerator.generate(card_pairs)
@@ -277,41 +292,55 @@ class ProxyController < ApplicationController
     rescue StandardError => ex
       Rails.logger.error("Folder single error: #{ex.class} - #{ex.message}")
       Rails.logger.error(ex.backtrace.first(10).join("\n"))
-      flash.now[:alert] = "Error generating PDF from folder. Check server logs."
+      flash.now[:alert] = "Error generating PDF from folder(s). Check server logs."
       render :show
     end
   end
 
-  # Generic double-sided card from local folder
+  # Generic double-sided card from local folder(s)
   def folder_double
     begin
-      unless params[:folder_path].present?
-        flash.now[:alert] = "Please provide folder path"
+      unless params[:folder_paths].present?
+        flash.now[:alert] = "Please provide folder paths"
         render :show and return
       end
 
-      folder_path = params[:folder_path].strip
+      # Parse folder paths (one per line)
+      folder_paths = params[:folder_paths].strip.split("\n").map(&:strip).reject(&:empty?)
       
-      # Validate path exists
-      unless Dir.exist?(folder_path)
-        flash.now[:alert] = "Folder path does not exist: #{folder_path}"
+      if folder_paths.empty?
+        flash.now[:alert] = "Please provide at least one folder path"
         render :show and return
       end
       
-      # Get all image files from folder, sorted alphabetically
+      # Collect all images from all folders
       image_extensions = %w[.jpg .jpeg .png .gif .bmp .webp .avif]
-      all_images = Dir.glob(File.join(folder_path, '*'))
-        .select { |f| File.file?(f) && image_extensions.include?(File.extname(f).downcase) }
-        .sort
+      all_images = []
+      
+      folder_paths.each do |folder_path|
+        # Validate folder exists
+        unless Dir.exist?(folder_path)
+          flash.now[:alert] = "Folder path does not exist: #{folder_path}"
+          render :show and return
+        end
+        
+        # Get image files from this folder
+        folder_images = Dir.glob(File.join(folder_path, '*'))
+          .select { |f| File.file?(f) && image_extensions.include?(File.extname(f).downcase) }
+          .sort
+        
+        Rails.logger.info("Found #{folder_images.size} images in #{folder_path}")
+        all_images.concat(folder_images)
+      end
       
       if all_images.empty?
-        flash.now[:alert] = "No image files found in folder: #{folder_path}"
+        flash.now[:alert] = "No image files found in any of the provided folders"
         render :show and return
       end
       
       # Check for even number of images
       if all_images.size.odd?
-        flash.now[:alert] = "Folder contains odd number of images (#{all_images.size}). Need pairs of front/back."
+        flash.now[:alert] = "Total of #{all_images.size} images found. Need even number for pairs of front/back."
         render :show and return
       end
       
@@ -324,7 +353,7 @@ class ProxyController < ApplicationController
         }
       end
       
-      Rails.logger.info("Processing #{card_pairs.size} double-sided cards from folder")
+      Rails.logger.info("Processing #{card_pairs.size} double-sided cards from #{folder_paths.size} folder(s)")
       
       # Generate PDF
       pdf_data = PdfGenerator.generate(card_pairs)
@@ -333,7 +362,7 @@ class ProxyController < ApplicationController
     rescue StandardError => ex
       Rails.logger.error("Folder double error: #{ex.class} - #{ex.message}")
       Rails.logger.error(ex.backtrace.first(10).join("\n"))
-      flash.now[:alert] = "Error generating PDF from folder. Check server logs."
+      flash.now[:alert] = "Error generating PDF from folder(s). Check server logs."
       render :show
     end
   end
