@@ -13,8 +13,8 @@ module PdfGenerator
     @@card_height = 88.mm
     
     @@card_y_start = 815.pt
-    @@card_space_between = 3.6 # 80px/1200 px per inch * 72 pn per inch
-    @@card_bleed_size = 1.2 # 10px/1200 px per inch * 72 pn per inch
+    @@card_space_between = 2.4 # 80px/1200 px per inch * 72 pn per inch
+    @@card_bleed_size = 1.8 # 10px/1200 px per inch * 72 pn per inch
     @@card_x_margin = (595.pt - (@@card_width * 3 + @@card_space_between * 2 + @@card_bleed_size * 6)) / 2
     
     Rails.logger.info("Starting PDF generation with #{card_pairs.size} cards")
