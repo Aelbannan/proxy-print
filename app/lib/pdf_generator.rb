@@ -46,18 +46,36 @@ module PdfGenerator
       
       # Generate backs page - reverse order horizontally for double-sided printing
       # Reverse every 3 cards (each row) so they align when flipped
+      # For partial rows, pad with nils to ensure correct positioning
       reversed_batch = []
       card_batch.each_slice(3) do |row|
-        reversed_batch.concat(row.reverse)
+        # Pad row to 3 elements if needed
+        padded_row = row.dup
+        while padded_row.size < 3
+          padded_row << nil
+        end
+        # Reverse the padded row and keep nils for positioning
+        reversed_batch.concat(padded_row.reverse)
       end
       
-      reversed_batch.each_with_index do |card_pair, card_index|
-        begin
-          Rails.logger.info("Processing back #{card_index + 1}/#{card_batch.size}")
-          process_and_add_image(card_pair[:back], pdf)
-        rescue => e
-          Rails.logger.error("Error processing back: #{e.message}")
-          raise e
+      # Render backs, skipping nil positions
+      card_count = 0
+      reversed_batch.each_with_index do |card_pair, index|
+        if card_pair.nil?
+          # Skip this position by advancing cursor
+          if ((@@x_position += @@card_width + @@card_space_between + @@card_bleed_size * 2) > (@@card_x_margin + (@@card_width + @@card_space_between) * 2 + @@card_bleed_size * 6))
+            @@x_position = @@card_x_margin
+            @@y_position -= @@card_height + @@card_space_between + @@card_bleed_size * 2
+          end
+        else
+          begin
+            card_count += 1
+            Rails.logger.info("Processing back #{card_count}/#{card_batch.size}")
+            process_and_add_image(card_pair[:back], pdf)
+          rescue => e
+            Rails.logger.error("Error processing back: #{e.message}")
+            raise e
+          end
         end
       end
     end
