@@ -7,6 +7,19 @@
   <%= link_to "ArkhamDB", "https://arkhamdb.com", target: "_blank" %>
   <br>
   <%= text_field_tag(:id, nil, placeholder: "e.g., 12345") %>
+  <br><br>
+  <span>Only include factions (optional; leave all unchecked for all):</span><br>
+  <% %w[guardian seeker rogue mystic survivor neutral mythos].each do |fc| %>
+    <%= check_box_tag("faction_code[]", fc, false, id: "deck_faction_#{fc}") %>
+    <%= label_tag("deck_faction_#{fc}", fc.titleize) %>
+  <% end %>
+  <br>
+  <span>Only include types (optional; leave all unchecked for all):</span><br>
+  <% %w[asset event skill treachery enemy location act agenda story investigator].each do |tc| %>
+    <%= check_box_tag("type_code[]", tc, false, id: "deck_type_#{tc}") %>
+    <%= label_tag("deck_type_#{tc}", tc.titleize) %>
+  <% end %>
+  <br><br>
   <%= submit_tag("Get PDF from Deck", data: { disable_with: false }) %>
 <% end %>
 </p>
@@ -17,6 +30,19 @@
   <%= label_tag(:card_ids, "Card IDs (comma-separated)") %>
   <br>
   <%= text_field_tag(:card_ids, nil, placeholder: "e.g., 01001, 01002, 01003", size: 50) %>
+  <br><br>
+  <span>Only include factions (optional; leave all unchecked for all):</span><br>
+  <% %w[guardian seeker rogue mystic survivor neutral mythos].each do |fc| %>
+    <%= check_box_tag("faction_code[]", fc, false, id: "card_faction_#{fc}") %>
+    <%= label_tag("card_faction_#{fc}", fc.titleize) %>
+  <% end %>
+  <br>
+  <span>Only include types (optional; leave all unchecked for all):</span><br>
+  <% %w[asset event skill treachery enemy location act agenda story investigator].each do |tc| %>
+    <%= check_box_tag("type_code[]", tc, false, id: "card_type_#{tc}") %>
+    <%= label_tag("card_type_#{tc}", tc.titleize) %>
+  <% end %>
+  <br><br>
   <%= submit_tag("Get PDF from Cards", data: { disable_with: false }) %>
 <% end %>
 </p>
@@ -27,6 +53,19 @@
   <%= label_tag(:pack_code, "Pack Code(s) - comma-separated for multiple") %>
   <br>
   <%= text_field_tag(:pack_code, nil, placeholder: "e.g., core, dwl, ptc", size: 50) %>
+  <br><br>
+  <span>Only include factions (optional; leave all unchecked for all):</span><br>
+  <% %w[guardian seeker rogue mystic survivor neutral mythos].each do |fc| %>
+    <%= check_box_tag("faction_code[]", fc, false, id: "pack_faction_#{fc}") %>
+    <%= label_tag("pack_faction_#{fc}", fc.titleize) %>
+  <% end %>
+  <br>
+  <span>Only include types (optional; leave all unchecked for all):</span><br>
+  <% %w[asset event skill treachery enemy location act agenda story investigator].each do |tc| %>
+    <%= check_box_tag("type_code[]", tc, false, id: "pack_type_#{tc}") %>
+    <%= label_tag("pack_type_#{tc}", tc.titleize) %>
+  <% end %>
+  <br><br>
   <%= submit_tag("Get PDF from Pack(s)", data: { disable_with: false }) %>
 <% end %>
 </p>

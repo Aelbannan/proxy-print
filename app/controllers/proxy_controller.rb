@@ -52,7 +52,23 @@ class ProxyController < ApplicationController
         flash.now[:alert] = "Please provide a deck ID, card IDs, or pack code"
         render :show and return
       end
-      
+
+      # Optional: filter by one or more faction_codes (e.g. guardian, seeker, rogue, mystic, survivor, neutral, mythos)
+      faction_codes = Array(params[:faction_code]).map { |fc| fc.to_s.downcase.strip }.reject(&:empty?)
+      if faction_codes.any?
+        before = cards.size
+        cards.select! { |card| faction_codes.include?(card[:faction].to_s.downcase) }
+        Rails.logger.info("Filtered by faction_code=#{faction_codes.inspect}: #{before} -> #{cards.size} cards")
+      end
+
+      # Optional: filter by one or more type_codes (e.g. asset, event, skill, treachery, enemy, location, act, agenda, story, investigator)
+      type_codes = Array(params[:type_code]).map { |tc| tc.to_s.downcase.strip }.reject(&:empty?)
+      if type_codes.any?
+        before = cards.size
+        cards.select! { |card| type_codes.include?(card[:type].to_s.downcase) }
+        Rails.logger.info("Filtered by type_code=#{type_codes.inspect}: #{before} -> #{cards.size} cards")
+      end
+
       # Convert card metadata to image URL pairs for PDF generation
       card_pairs = prepare_card_pairs(cards)
       
