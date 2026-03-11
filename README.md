@@ -3,6 +3,7 @@
 ```
 eval "$(rbenv init - zsh)" && cd /Users/ahmedelbannan/Ahmed/ahiskali-arkham-print && rails server
 ```
+(The app runs on port 3001 by default; open http://localhost:3001)
 
 This is a web app to generate printable PDF proxies for Arkham Horror: The Card Game cards from [ArkhamDB](https://arkhamdb.com/).
 
@@ -90,7 +91,7 @@ Or combine with a custom port:
 rails server -e development -p 3001
 ```
 
-The application will be available at [http://localhost:3000](http://localhost:3000)
+The application will be available at [http://localhost:3001](http://localhost:3001)
 
 ### Troubleshooting
 
@@ -125,7 +126,7 @@ rails server -p 3001
 
 ## Usage
 
-Once the server is running, visit [http://localhost:3000](http://localhost:3000) and you'll see three options:
+Once the server is running, visit [http://localhost:3001](http://localhost:3001) and you'll see three options:
 
 ### Option 1: From ArkhamDB Deck
 - Enter a deck ID or paste a full ArkhamDB deck URL

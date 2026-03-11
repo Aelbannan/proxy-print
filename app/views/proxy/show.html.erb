@@ -21,6 +21,7 @@
   <% end %>
   <br><br>
   <%= submit_tag("Get PDF from Deck", data: { disable_with: false }) %>
+  <%= submit_tag("Get ZIP from Deck", name: "format", value: "zip", data: { disable_with: false }) %>
 <% end %>
 </p>
 
@@ -44,6 +45,7 @@
   <% end %>
   <br><br>
   <%= submit_tag("Get PDF from Cards", data: { disable_with: false }) %>
+  <%= submit_tag("Get ZIP from Cards", name: "format", value: "zip", data: { disable_with: false }) %>
 <% end %>
 </p>
 
@@ -67,6 +69,7 @@
   <% end %>
   <br><br>
   <%= submit_tag("Get PDF from Pack(s)", data: { disable_with: false }) %>
+  <%= submit_tag("Get ZIP from Pack(s)", name: "format", value: "zip", data: { disable_with: false }) %>
 <% end %>
 </p>
 

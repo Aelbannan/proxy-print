@@ -35,9 +35,11 @@ class ProxyController < ApplicationController
         # Pack code(s) - can be comma-separated
         pack_codes = params[:pack_code].split(',').map(&:strip)
         cards = []
+        # Fetch encounter (mythos) cards once so all packs can include them
+        encounter_cards_by_pack = fetch_encounter_cards_by_pack
         pack_codes.each do |pack_code|
           Rails.logger.info("Fetching pack: #{pack_code}")
-          cards.concat(pack_cards(pack_code))
+          cards.concat(pack_cards(pack_code, encounter_cards_by_pack))
         end
         
         # Sort all cards after combining multiple packs: double-sided first, then mythos, then other factions
@@ -69,10 +71,13 @@ class ProxyController < ApplicationController
         Rails.logger.info("Filtered by type_code=#{type_codes.inspect}: #{before} -> #{cards.size} cards")
       end
 
-      # Convert card metadata to image URL pairs for PDF generation
-      card_pairs = prepare_card_pairs(cards)
-      
-      send_data PdfGenerator.generate(card_pairs), filename: "cards.pdf"
+      if params[:format] == "zip"
+        zip_data = build_arkham_cards_zip(cards)
+        send_data zip_data, filename: "cards.zip", type: "application/zip"
+      else
+        card_pairs = prepare_card_pairs(cards)
+        send_data PdfGenerator.generate(card_pairs), filename: "cards.pdf"
+      end
     rescue MiniMagick::Error => ex
       Rails.logger.error("ImageMagick error: #{ex.class} - #{ex.message}")
       Rails.logger.error(ex.backtrace.first(10).join("\n"))
@@ -104,6 +109,7 @@ class ProxyController < ApplicationController
     end
     
     metadata = {
+      code: card_data["code"],
       front_image: "https://assets.arkham.build/optimized/#{card_data["code"]}.avif",
       double_sided: card_data["double_sided"] == true,
       faction: card_data["faction_code"] || "neutral",
@@ -128,34 +134,50 @@ class ProxyController < ApplicationController
     card_data_to_metadata(card_data)
   end
 
-  # Fetch entire pack and return card metadata with quantities
-  # Pack API already returns all card data, so no need to fetch individually
-  def pack_cards(pack_code)
+  # Fetch encounter (mythos) cards from API and group by pack_code.
+  # Pack endpoint only returns player cards; encounter cards need this separate request.
+  def fetch_encounter_cards_by_pack
+    @encounter_cards_by_pack ||= begin
+      Rails.logger.info("Fetching encounter cards for mythos inclusion")
+      api = "https://arkhamdb.com/api/public/cards/?encounter=1"
+      data = HTTParty.get(api)
+      data.group_by { |c| c["pack_code"].to_s.downcase }
+    end
+  end
+
+  # Fetch entire pack and return card metadata with quantities (player + encounter/mythos cards)
+  def pack_cards(pack_code, encounter_cards_by_pack = nil)
     Rails.logger.info("Fetching pack data for: #{pack_code}")
     pack_api = "https://arkhamdb.com/api/public/cards/#{pack_code}"
     pack_data = HTTParty.get(pack_api)
-    
+    pack_code_lower = pack_code.to_s.downcase
+
     cards = []
     pack_data.each do |card_data|
-      # Get appropriate quantity: player cards get quantity, others get 1
       quantity = card_data["quantity"] || 1
-      
-      # Convert card data to metadata using shared function (no extra API calls)
       metadata = card_data_to_metadata(card_data)
       if metadata
         quantity.times { cards << metadata }
       end
     end
-    
-    # Sort cards: double-sided first, then mythos, then other factions
+
+    # Add encounter (mythos) cards for this pack; pack API returns player cards only
+    if encounter_cards_by_pack
+      (encounter_cards_by_pack[pack_code_lower] || []).each do |card_data|
+        metadata = card_data_to_metadata(card_data)
+        if metadata
+          (card_data["quantity"] || 1).times { cards << metadata }
+        end
+      end
+    end
+
     cards.sort_by! do |card|
       [
-        card[:double_sided] ? 0 : 1,                           # Double-sided cards first
-        card[:faction] == "mythos" ? "0" : card[:faction] || "zzz"  # Mythos first, then alphabetically
+        card[:double_sided] ? 0 : 1,
+        card[:faction] == "mythos" ? "0" : card[:faction] || "zzz"
       ]
     end
-    
-    Rails.logger.info("Sorted #{cards.size} cards: double-sided first, mythos first, then by faction")
+    Rails.logger.info("Sorted #{cards.size} cards for pack #{pack_code} (double-sided first, mythos first, then faction)")
     cards
   end
 
@@ -185,6 +207,41 @@ class ProxyController < ApplicationController
         back: back_url
       }
     end
+  end
+
+  # Build a ZIP of card images: one folder per type, front (and back for double-sided) per card.
+  # Uses system `zip` command so no rubyzip gem is required.
+  def build_arkham_cards_zip(cards)
+    zip_path = File.join(Dir.tmpdir, "arkham_cards_#{Process.pid}.zip")
+    Dir.mktmpdir("arkham_cards") do |dir|
+      counter = Hash.new(0)
+
+      cards.each do |card|
+        type_dir = card[:type].to_s.downcase.gsub(/[^a-z0-9_-]/, "_").presence || "unknown"
+        type_path = File.join(dir, type_dir)
+        FileUtils.mkdir_p(type_path)
+
+        key = "#{type_dir}/#{card[:code]}"
+        counter[key] += 1
+        n = counter[key]
+        base = (n == 1) ? card[:code] : "#{card[:code]}_#{n}"
+
+        front_path = File.join(type_path, "#{base}.avif")
+        File.binwrite(front_path, HTTParty.get(card[:front_image]).body)
+
+        if card[:double_sided] && card[:back_image]
+          back_path = File.join(type_path, "#{base}_back.avif")
+          File.binwrite(back_path, HTTParty.get(card[:back_image]).body)
+        end
+      end
+
+      unless system("zip", "-r", "-q", zip_path, ".", chdir: dir)
+        raise "ZIP creation failed. Is the 'zip' command available? (e.g. macOS: install with: brew install zip)"
+      end
+    end
+    File.binread(zip_path)
+  ensure
+    File.unlink(zip_path) if zip_path && File.file?(zip_path)
   end
 
   # Netrunner card proxy generation
