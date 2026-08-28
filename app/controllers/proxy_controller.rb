@@ -141,7 +141,9 @@ class ProxyController < ApplicationController
       Rails.logger.info("Fetching encounter cards for mythos inclusion")
       api = "https://arkhamdb.com/api/public/cards/?encounter=1"
       data = HTTParty.get(api)
-      data.group_by { |c| c["pack_code"].to_s.downcase }
+      # Encounter cards are identified by having an encounter_code (they can be neutral, not just mythos)
+      encounter = data.select { |c| c["encounter_code"].present? }
+      encounter.group_by { |c| c["pack_code"].to_s.downcase }
     end
   end
 
